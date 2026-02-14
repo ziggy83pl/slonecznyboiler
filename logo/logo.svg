@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 100" width="380" height="100">
+  <defs>
+    <linearGradient id="sunGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FCD34D"/>
+      <stop offset="100%" style="stop-color:#F59E0B"/>
+    </linearGradient>
+    <linearGradient id="dropGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FDE68A"/>
+      <stop offset="100%" style="stop-color:#D97706"/>
+    </linearGradient>
+    <radialGradient id="glowGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#F59E0B;stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:#F59E0B;stop-opacity:0"/>
+    </radialGradient>
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background pill -->
+  <rect x="0" y="0" width="380" height="100" rx="16" fill="#1C1917"/>
+
+  <!-- Glow halo behind icon -->
+  <circle cx="50" cy="50" r="38" fill="url(#glowGrad)"/>
+
+  <!-- Sun rays (8 rays, alternating long/short) -->
+  <g transform="translate(50,50)" filter="url(#softGlow)">
+    <!-- Long rays -->
+    <rect x="-2" y="-38" width="4" height="12" rx="2" fill="url(#sunGrad)" transform="rotate(0)"/>
+    <rect x="-2" y="-38" width="4" height="12" rx="2" fill="url(#sunGrad)" transform="rotate(45)"/>
+    <rect x="-2" y="-38" width="4" height="12" rx="2" fill="url(#sunGrad)" transform="rotate(90)"/>
+    <rect x="-2" y="-38" width="4" height="12" rx="2" fill="url(#sunGrad)" transform="rotate(135)"/>
+    <rect x="-2" y="-38" width="4" height="12" rx="2" fill="url(#sunGrad)" transform="rotate(180)"/>
+    <rect x="-2" y="-38" width="4" height="12" rx="2" fill="url(#sunGrad)" transform="rotate(225)"/>
+    <rect x="-2" y="-38" width="4" height="12" rx="2" fill="url(#sunGrad)" transform="rotate(270)"/>
+    <rect x="-2" y="-38" width="4" height="12" rx="2" fill="url(#sunGrad)" transform="rotate(315)"/>
+    <!-- Short rays (offset 22.5°) -->
+    <rect x="-1.5" y="-32" width="3" height="8" rx="1.5" fill="#F59E0B" opacity="0.6" transform="rotate(22.5)"/>
+    <rect x="-1.5" y="-32" width="3" height="8" rx="1.5" fill="#F59E0B" opacity="0.6" transform="rotate(67.5)"/>
+    <rect x="-1.5" y="-32" width="3" height="8" rx="1.5" fill="#F59E0B" opacity="0.6" transform="rotate(112.5)"/>
+    <rect x="-1.5" y="-32" width="3" height="8" rx="1.5" fill="#F59E0B" opacity="0.6" transform="rotate(157.5)"/>
+    <rect x="-1.5" y="-32" width="3" height="8" rx="1.5" fill="#F59E0B" opacity="0.6" transform="rotate(202.5)"/>
+    <rect x="-1.5" y="-32" width="3" height="8" rx="1.5" fill="#F59E0B" opacity="0.6" transform="rotate(247.5)"/>
+    <rect x="-1.5" y="-32" width="3" height="8" rx="1.5" fill="#F59E0B" opacity="0.6" transform="rotate(292.5)"/>
+    <rect x="-1.5" y="-32" width="3" height="8" rx="1.5" fill="#F59E0B" opacity="0.6" transform="rotate(337.5)"/>
+  </g>
+
+  <!-- Sun circle body -->
+  <circle cx="50" cy="50" r="22" fill="url(#sunGrad)" filter="url(#softGlow)"/>
+
+  <!-- Water drop inside sun (hot water symbol) -->
+  <path d="M50 37 C50 37, 42 46, 42 52 C42 58.6, 45.7 62, 50 62 C54.3 62, 58 58.6, 58 52 C58 46, 50 37, 50 37Z"
+        fill="url(#dropGrad)" opacity="0.9"/>
+  <!-- Drop highlight -->
+  <ellipse cx="47" cy="49" rx="2.5" ry="4" fill="white" opacity="0.35" transform="rotate(-15, 47, 49)"/>
+  <!-- Steam wisps above drop -->
+  <path d="M46 35 Q45 32 46 29" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.5"/>
+  <path d="M50 34 Q49 31 50 28" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.4"/>
+  <path d="M54 35 Q53 32 54 29" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Wordmark -->
+  <!-- "Słoneczny" - lighter weight -->
+  <text x="106" y="44"
+        font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+        font-size="22"
+        font-weight="300"
+        letter-spacing="-0.3"
+        fill="white"
+        opacity="0.9">Słoneczny</text>
+
+  <!-- "Bojler" - heavy weight, amber -->
+  <text x="106" y="72"
+        font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+        font-size="26"
+        font-weight="800"
+        letter-spacing="-0.5"
+        fill="#F59E0B">Bojler</text>
+
+  <!-- Tagline dot separator -->
+  <circle cx="100" cy="52" r="2.5" fill="#F59E0B" opacity="0.6"/>
+
+  <!-- Divider line between text blocks -->
+  <rect x="106" y="50" width="160" height="1" fill="#F59E0B" opacity="0.2" rx="1"/>
+
+</svg>

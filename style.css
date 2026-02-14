@@ -538,3 +538,24 @@ footer {
 .cookie-accept:hover { background: var(--sun-deep); }
 .cookie-reject { background: transparent; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.2); }
 .cookie-reject:hover { border-color: var(--white); color: var(--white); }
+
+/* ── PWA INSTALL BUTTON ───────────────────────────── */
+.btn-install {
+    margin-top: 20px;
+    background: transparent;
+    border: 1px solid var(--sun);
+    color: var(--sun);
+    padding: 10px 20px;
+    border-radius: 100px;
+    font-family: 'Sora', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    margin-right: auto;
+}
+.btn-install.visible { display: inline-flex !important; }
+.btn-install:hover { background: var(--sun); color: var(--ink); }

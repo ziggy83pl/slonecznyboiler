@@ -1,0 +1,37 @@
+{
+  "name": "SłonecznyBojler",
+  "short_name": "SłonecznyBojler",
+  "start_url": "./sloneczny-bojler.html",
+  "display": "standalone",
+  "background_color": "#F7F3EC",
+  "theme_color": "#F59E0B",
+  "description": "Montaż systemów fotowoltaicznych do podgrzewania wody – off-grid, bez formalności.",
+  "icons": [
+    {
+      "src": "logo/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "logo/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Kalkulator Oszczędności",
+      "short_name": "Kalkulator",
+      "description": "Policz ile zaoszczędzisz",
+      "url": "./sloneczny-bojler.html#kalkulator",
+      "icons": [{ "src": "logo/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Darmowa Wycena",
+      "short_name": "Wycena",
+      "description": "Zamów bezpłatną wycenę",
+      "url": "./sloneczny-bojler.html#kontakt",
+      "icons": [{ "src": "logo/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

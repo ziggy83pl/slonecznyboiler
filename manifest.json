@@ -1,7 +1,7 @@
 {
   "name": "SłonecznyBojler",
   "short_name": "SłonecznyBojler",
-  "start_url": "./sloneczny-bojler.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#F7F3EC",
   "theme_color": "#F59E0B",
@@ -23,14 +23,14 @@
       "name": "Kalkulator Oszczędności",
       "short_name": "Kalkulator",
       "description": "Policz ile zaoszczędzisz",
-      "url": "./sloneczny-bojler.html#kalkulator",
+      "url": "./index.html#kalkulator",
       "icons": [{ "src": "logo/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Darmowa Wycena",
       "short_name": "Wycena",
       "description": "Zamów bezpłatną wycenę",
-      "url": "./sloneczny-bojler.html#kontakt",
+      "url": "./index.html#kontakt",
       "icons": [{ "src": "logo/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]

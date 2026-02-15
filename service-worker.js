@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sloneczny-bojler-v2';
+const CACHE_NAME = 'sloneczny-bojler-v8';
 const urlsToCache = [
   './',
   './sloneczny-bojler.html',

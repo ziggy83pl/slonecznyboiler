@@ -15,7 +15,7 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; overflow-x: hidden; }
 
 body {
     font-family: 'DM Sans', sans-serif;
@@ -457,6 +457,27 @@ input[type="range"]::-webkit-slider-thumb {
     font-weight: 600; font-size: 0.92rem;
 }
 
+/* ── SERVICE AREA ─────────────────────────────────── */
+#obszar {
+    background: var(--ink);
+    padding: 60px 24px;
+    overflow: hidden; /* Zabezpieczenie przed wystawaniem */
+}
+.area-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center;
+}
+.area-tags {
+    display: flex; flex-wrap: wrap; gap: 10px;
+}
+.area-map-container {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(245,158,11,0.2);
+    border-radius: 20px;
+    padding: 32px;
+    text-align: center;
+    box-sizing: border-box;
+}
+
 /* ── FOOTER ───────────────────────────────────────── */
 footer {
     background: #111; color: rgba(255,255,255,0.4);
@@ -472,12 +493,34 @@ footer {
     .steps-grid { grid-template-columns: 1fr 1fr; }
     .steps-grid::before { display: none; }
     .faq-grid { grid-template-columns: 1fr; }
+    
+    /* Poprawka dla sekcji Obszar na małym ekranie */
+    .area-grid { 
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        text-align: center; 
+        gap: 40px; 
+    }
+    .area-text { width: 100%; display: flex; flex-direction: column; align-items: center; }
+    .area-tags { justify-content: center; }
+    #obszar .section-title br { display: none; } /* Ukrywa łamanie linii w tytule */
+    .area-map-container { width: 100%; max-width: 400px; order: 2; }
+    
+    /* Responsywność mapki SVG */
+    .area-map-container svg { width: 100%; height: auto; max-width: 180px; }
 }
 @media (max-width: 600px) {
     .form-row { grid-template-columns: 1fr; }
     .steps-grid { grid-template-columns: 1fr; }
     nav .nav-links { display: none; }
     .hero-stats { gap: 20px; flex-wrap: wrap; }
+    nav { padding: 0 16px; }
+    #back-to-top { display: none !important; }
+    
+    /* Mniejsze odstępy na telefonie w sekcji Obszar */
+    #obszar { padding: 40px 16px; }
+    .area-map-container { padding: 24px 16px; }
 }
 
 /* ── ANIMATIONS ───────────────────────────────────── */

@@ -397,12 +397,21 @@ function fetchWithTimeout(url, timeoutMs = 8000) {
 
 // ── WAŻNA POPRAWKA: formatTime ───────────────────────
 // Open-Meteo zwraca sunrise/sunset jako czas LOKALNY (nie UTC!)
-function formatTime(localIsoStr) {
-    if (!localIsoStr) return '--:--';
-    // Wytnij godzinę i minuty bezpośrednio ze stringa "2026-02-16T07:15" -> "07:15"
-    const timePart = localIsoStr.split('T')[1];
-    if (!timePart) return '--:--';
-    return timePart.substring(0, 5);
+function formatTime(input) {
+    if (!input) return '--:--';
+
+    // 1. Jeśli to liczba (timestamp z hovera na wykresie)
+    if (typeof input === 'number') {
+        return new Date(input).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // 2. Jeśli to string ISO z API (np. "2026-02-16T07:15")
+    const str = String(input);
+    const parts = str.split('T');
+    if (parts.length > 1) {
+        return parts[1].substring(0, 5);
+    }
+    return '--:--';
 }
 
 function drawSolarCurve(hoverX = null) {

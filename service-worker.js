@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sloneczny-bojler-v42';
+const CACHE_NAME = 'sloneczny-bojler-v43';
 const urlsToCache = [
   './',
   './index.html',
@@ -50,3 +50,4 @@ self.addEventListener('fetch', event => {
     );
 
 });
+

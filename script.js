@@ -1,60 +1,97 @@
 // ── CALCULATOR ───────────────────────────────────────
+// ── 1. Definicja inputs (sprawdź czy ID zgadzają się z HTML!) ──
 const inputs = {
-    volume: { el: document.getElementById('range-volume'), out: document.getElementById('val-volume'), unit: ' L' },
+    volume:  { el: document.getElementById('range-volume'),  out: document.getElementById('val-volume'),  unit: ' L' },
     persons: { el: document.getElementById('range-persons'), out: document.getElementById('val-persons'), unit: '' },
-    price: { el: document.getElementById('range-price'), out: document.getElementById('val-price'), unit: ' zł' },
-    sunny: { el: document.getElementById('range-sunny'), out: document.getElementById('val-sunny'), unit: '' },
+    price:   { el: document.getElementById('range-price'),   out: document.getElementById('val-price'),   unit: ' zł' },
+    sunny:   { el: document.getElementById('range-sunny'),   out: document.getElementById('val-sunny'),   unit: '' },
 };
 
+// ── 2. Sprawdź czy wszystkie elementy istnieją ──────
+// (jeśli któryś zwróci null w konsoli — masz błąd ID w HTML)
+console.log('Kalkulator — elementy:', {
+    'range-volume':  document.getElementById('range-volume'),
+    'range-persons': document.getElementById('range-persons'),
+    'range-price':   document.getElementById('range-price'),
+    'range-sunny':   document.getElementById('range-sunny'),
+    'result-energy': document.getElementById('result-energy'),
+    'result-cost':   document.getElementById('result-cost'),
+    'result-saving': document.getElementById('result-saving'),
+    'result-payback':document.getElementById('result-payback'),
+});
+
+// ── 3. Funkcja obliczeniowa ─────────────────────────
 function calcUpdate() {
-    const vol = +inputs.volume.el.value;
-    const persons = +inputs.persons.el.value;
-    const price = +inputs.price.el.value;
-    const sunny = +inputs.sunny.el.value;
+    // Bezpieczne odczytanie — jeśli element nie istnieje, użyj domyślnej wartości
+    const vol     = inputs.volume.el  ? +inputs.volume.el.value  : 180;
+    const persons = inputs.persons.el ? +inputs.persons.el.value : 4;
+    const price   = inputs.price.el   ? +inputs.price.el.value   : 1.10;
+    const sunny   = inputs.sunny.el   ? +inputs.sunny.el.value   : 180;
 
-    // kWh needed to heat water for N persons per year
-    // ~50L/person/day, delta T ~35°C, 4.186 J/(g·K), 1 kWh = 3600 kJ
-    const litersPerDay = persons * 50;
-    const kwhUsagePerDay = (litersPerDay * 4.186 * 35) / 3600;
+    // Energia do podgrzania wody: Q = m × c × ΔT / 3600
+    // ~50L/os/dzień, ΔT = 35°C, c = 4.186 kJ/(kg·K)
+    const litersPerDay    = persons * 50;
+    const kwhUsagePerDay  = (litersPerDay * 4.186 * 35) / 3600;
 
-    // Straty postojowe: ok. 0.8 kWh / 100L / dobę
-    const standbyLossesPerDay = (vol / 100) * 0.8;
+    // Straty postojowe: ~0.8 kWh / 100L / dobę
+    const standbyPerDay   = (vol / 100) * 0.8;
 
-    const totalKwhPerDay = kwhUsagePerDay + standbyLossesPerDay;
-    const totalKwhPerYear = totalKwhPerDay * 365;
-    const costPerYear = totalKwhPerYear * price;
+    const totalPerDay     = kwhUsagePerDay + standbyPerDay;
+    const totalPerYear    = totalPerDay * 365;
+    const costPerYear     = totalPerYear * price;
 
-    // Współczynnik akumulacji (pokrycia) zależny od pojemności
-    // Baza 0.78, rośnie z pojemnością (większy bufor = lepsze wykorzystanie słońca)
-    const volumeFactor = 0.78 + Math.min(0.17, (vol - 50) / 1500);
+    // Pokrycie słoneczne: większy bojler = lepszy akumulator
+    const volumeFactor    = 0.78 + Math.min(0.17, (vol - 50) / 1500);
+    const solarCoverage   = (sunny / 365) * volumeFactor;
+    const saving          = costPerYear * solarCoverage;
 
-    const solarCoverage = (sunny / 365) * volumeFactor;
-    const saving = costPerYear * solarCoverage;
-    const investmentCost = 3200;
-    const paybackYears = investmentCost / saving;
+    const investmentCost  = 3200;
+    const paybackYears    = saving > 0 ? investmentCost / saving : 0;
 
-    document.getElementById('result-energy').textContent = Math.round(totalKwhPerYear) + ' kWh';
-    document.getElementById('result-cost').textContent = Math.round(costPerYear) + ' zł';
-    document.getElementById('result-saving').textContent = Math.round(saving) + ' zł';
-    document.getElementById('result-payback').textContent = paybackYears.toFixed(1) + ' lat';
+    // ── Aktualizacja DOM (z null-check) ──────────────
+    const set = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+        else console.warn('Kalkulator: brak elementu #' + id);
+    };
 
-    // Aktualizacja opisu pokrycia
+    set('result-energy',  Math.round(totalPerYear) + ' kWh');
+    set('result-cost',    Math.round(costPerYear)  + ' zł');
+    set('result-saving',  Math.round(saving)       + ' zł');
+    set('result-payback', paybackYears > 0 ? paybackYears.toFixed(1) + ' lat' : '—');
+
     const savingSub = document.getElementById('result-saving-sub');
     if (savingSub) {
         savingSub.textContent = `zł oszczędności (pokrycie ok. ${Math.round(solarCoverage * 100)}%)`;
     }
 }
 
+// ── 4. Eventy na suwakach ───────────────────────────
 Object.entries(inputs).forEach(([key, obj]) => {
+    if (!obj.el) {
+        console.warn('Kalkulator: brak suwaka dla klucza:', key);
+        return;
+    }
     obj.el.addEventListener('input', () => {
-        let val = +obj.el.value;
-        if (key === 'price') obj.out.textContent = val.toFixed(2) + obj.unit;
-        else obj.out.textContent = val + obj.unit;
+        const val = +obj.el.value;
+        if (obj.out) {
+            obj.out.textContent = (key === 'price')
+                ? val.toFixed(2) + obj.unit
+                : val + obj.unit;
+        }
         calcUpdate();
     });
+
+    // Inicjalizuj etykietę suwaka przy starcie
+    if (obj.out && obj.el.value !== undefined) {
+        const val = +obj.el.value;
+        obj.out.textContent = (key === 'price')
+            ? val.toFixed(2) + obj.unit
+            : val + obj.unit;
+    }
 });
-// Init display for price (start at 1.10)
-inputs.price.out.textContent = '1.10 zł';
+
+// ── 5. ★ KLUCZOWE: wywołaj przy starcie ─────────────
 calcUpdate();
 
 // ── FORM ─────────────────────────────────────────────
@@ -350,11 +387,22 @@ function getSeason(date) {
     return { label: '❄ Zima', factor: 0.30 };
 }
 
-function formatTime(isoStr) {
-    if (!isoStr) return '--:--';
-    // Open-Meteo zwraca czas lokalny w formacie ISO
-    const d = new Date(isoStr);
-    return d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+// ── Helper: fetch z timeoutem (8 sekund) ─────────────
+function fetchWithTimeout(url, timeoutMs = 8000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { signal: controller.signal })
+        .finally(() => clearTimeout(timer));
+}
+
+// ── WAŻNA POPRAWKA: formatTime ───────────────────────
+// Open-Meteo zwraca sunrise/sunset jako czas LOKALNY (nie UTC!)
+function formatTime(localIsoStr) {
+    if (!localIsoStr) return '--:--';
+    // Wytnij godzinę i minuty bezpośrednio ze stringa "2026-02-16T07:15" -> "07:15"
+    const timePart = localIsoStr.split('T')[1];
+    if (!timePart) return '--:--';
+    return timePart.substring(0, 5);
 }
 
 function drawSolarCurve(hoverX = null) {
@@ -422,19 +470,12 @@ function drawSolarCurve(hoverX = null) {
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
     
-    // Gradient dla linii: Zielony powyżej 2000W, Bursztynowy poniżej
-    const thresholdW = 2000;
-    if (PEAK_POWER > thresholdW) {
-        const strokeGrad = ctx.createLinearGradient(0, pad.t, 0, H - pad.b);
-        const stopPos = Math.max(0, Math.min(1, 1 - (thresholdW / PEAK_POWER)));
-        strokeGrad.addColorStop(0, '#4ADE80');       // Zielony na szczycie
-        strokeGrad.addColorStop(stopPos, '#4ADE80'); // Zielony do progu
-        strokeGrad.addColorStop(stopPos, '#F59E0B'); // Bursztynowy od progu
-        strokeGrad.addColorStop(1, '#F59E0B');       // Bursztynowy na dole
-        ctx.strokeStyle = strokeGrad;
-    } else {
-        ctx.strokeStyle = '#F59E0B';
-    }
+    // Gradient dla linii: Niebieski (rano) -> Pomarańczowy (południe) -> Niebieski (wieczór)
+    const strokeGrad = ctx.createLinearGradient(pad.l, 0, pad.l + plotW, 0);
+    strokeGrad.addColorStop(0.0, '#3B82F6'); // Rano: Niebieski
+    strokeGrad.addColorStop(0.5, '#F59E0B'); // Południe: Pomarańczowy
+    strokeGrad.addColorStop(1.0, '#3B82F6'); // Wieczór: Niebieski
+    ctx.strokeStyle = strokeGrad;
 
     ctx.lineWidth = 2.5;
     ctx.shadowColor = 'rgba(245,158,11,0.6)';
@@ -616,103 +657,216 @@ function renderForecast(view) {
 
 async function loadSolarData() {
     clearTimeout(solarTimeout);
+    console.log('☀ loadSolarData() uruchomiona o:', new Date().toLocaleTimeString());
+
     const refreshBtn = document.getElementById('sw-refresh-btn');
     if(refreshBtn) refreshBtn.classList.add('loading');
 
-    const now = new Date(); const season = getSeason(now);
+    const now = new Date();
+    const season = getSeason(now);
     const seasonEl = document.getElementById('sw-season');
     if(seasonEl) seasonEl.textContent = season.label;
+
+    // Upewnij się że loading jest widoczny na start
+    const loadingEl = document.getElementById('sw-loading');
+    if (loadingEl) {
+        loadingEl.style.display = 'flex';
+        loadingEl.innerHTML = '<div class="sw-spinner"></div> Pobieranie danych...';
+    }
+
     try {
-        // Używamy jednego API (Open-Meteo) dla stabilności
-        const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LNG}&current=shortwave_radiation,cloudcover,is_day&daily=shortwave_radiation_sum,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=Europe%2FWarsaw`);
+        const url = `https://api.open-meteo.com/v1/forecast` +
+            `?latitude=${LAT}&longitude=${LNG}` +
+            `&current=shortwave_radiation,cloudcover,is_day,temperature_2m,weather_code` +
+            `&daily=shortwave_radiation_sum,temperature_2m_max,temperature_2m_min,sunrise,sunset` +
+            `&timezone=Europe/Warsaw` +
+            `&forecast_days=7`;
+
+        console.log('☀ Fetch URL:', url);
+
+        const response = await fetchWithTimeout(url, 8000);
         
-        if (!response.ok) throw new Error('API Error');
+        if (!response.ok) {
+            throw new Error(`API HTTP ${response.status}: ${response.statusText}`);
+        }
+
         const data = await response.json();
+        console.log('☀ Dane z API:', data.current);
 
-        const sunriseIso = data.daily.sunrise[0];
-        const sunsetIso = data.daily.sunset[0];
+        // ── Wschód / Zachód ───────────────────────────────
+        const sunriseIso = data.daily?.sunrise?.[0];
+        const sunsetIso  = data.daily?.sunset?.[0];
+
+        if (!sunriseIso || !sunsetIso) {
+            throw new Error('Brak danych sunrise/sunset w odpowiedzi API');
+        }
+
+        // WAŻNE: Open-Meteo zwraca czas lokalny — używamy formatTime bez konwersji
         const sunriseTs = new Date(sunriseIso).getTime();
-        const sunsetTs = new Date(sunsetIso).getTime();
-        const nowTs = now.getTime();
+        const sunsetTs  = new Date(sunsetIso).getTime();
+        const nowTs     = now.getTime();
         
-        document.getElementById('sw-sunrise').textContent = formatTime(sunriseIso);
-        document.getElementById('sw-sunset').textContent = formatTime(sunsetIso);
-        
-        const radiation = Math.round(data.current.shortwave_radiation || 0);
-        const clouds = Math.round(data.current.cloudcover || 0);
-        const isDay = data.current.is_day === 1;
-        const efficiency = 0.82;
-        const panelOutput = isDay ? Math.round((radiation / 1000) * PEAK_POWER * efficiency) : 0;
-        document.getElementById('sw-radiation').textContent = radiation + ' W/m²';
-        document.getElementById('sw-clouds').textContent = clouds + '%';
-        document.getElementById('sw-panels').textContent = panelOutput + ' W';
+        const elSunrise = document.getElementById('sw-sunrise');
+        const elSunset  = document.getElementById('sw-sunset');
+        if (elSunrise) elSunrise.textContent = formatTime(sunriseIso);
+        if (elSunset)  elSunset.textContent  = formatTime(sunsetIso);
 
-        // ── OBLICZANIE PRODUKCJI DZIENNEJ (Całkowanie) ──
-        // Model: P(t) = P_max * sin(pi * t) * cloudFactor
-        // Energia = P_max * cloudFactor * efficiency * (DługośćDnia_h) * Integral(sin(pi*t) dt od 0 do x)
-        // Całka z sin(pi*t) to (1 - cos(pi*x)) / pi
+        console.log('☀ Wschód:', formatTime(sunriseIso), '| Zachód:', formatTime(sunsetIso));
+        
+        // ── Dane meteo ────────────────────────────────────
+        const radiation = Math.round(data.current?.shortwave_radiation ?? 0);
+        const clouds    = Math.round(data.current?.cloudcover ?? 0);
+        const isDay     = data.current?.is_day === 1;
+        const currentTemp = Math.round(data.current?.temperature_2m ?? 0);
+        const efficiency = 0.82;
+        const panelOutput = isDay
+            ? Math.round((radiation / 1000) * PEAK_POWER * efficiency)
+            : 0;
+
+        console.log(`☀ Promieniowanie: ${radiation} W/m² | Zachmurzenie: ${clouds}% | Dzień: ${isDay}`);
+
+        const elRadiation = document.getElementById('sw-radiation');
+        const elClouds    = document.getElementById('sw-clouds');
+        const elPanels    = document.getElementById('sw-panels');
+        if (elRadiation) elRadiation.textContent = radiation + ' W/m²';
+        if (elClouds)    elClouds.textContent    = clouds + '%';
+        if (elPanels)    elPanels.textContent    = panelOutput + ' W';
+
+        const elTemp = document.getElementById('sw-current-temp');
+        if (elTemp) {
+            elTemp.textContent = `${currentTemp}°C`;
+            if (currentTemp < 0) elTemp.style.color = '#3b82f6';       // Niebieski (mróz)
+            else if (currentTemp > 25) elTemp.style.color = '#ef4444'; // Czerwony (upał)
+            else elTemp.style.color = 'var(--sun)';                    // Domyślny (pomarańczowy)
+        }
+
+        // ── Produkcja dzienna (całkowanie) ────────────────
         const dayLengthHours = (sunsetTs - sunriseTs) / (1000 * 60 * 60);
         let nowRatio = (nowTs - sunriseTs) / (sunsetTs - sunriseTs);
-        if (nowRatio < 0) nowRatio = 0;
-        if (nowRatio > 1) nowRatio = 1;
+        nowRatio = Math.max(0, Math.min(1, nowRatio));
         
         const cloudFactor = 1 - (clouds / 100) * 0.85;
         const integralFactor = (1 - Math.cos(Math.PI * nowRatio)) / Math.PI;
-        
-        // Wynik w Wh -> zamiana na kWh
         const producedWh = PEAK_POWER * cloudFactor * efficiency * dayLengthHours * integralFactor;
         const producedKWh = (producedWh / 1000).toFixed(2);
         
         const dailyValEl = document.getElementById('sw-daily-val');
         if (dailyValEl) dailyValEl.textContent = producedKWh;
 
-        const cloudLabel = clouds < 20 ? '☀ Bezchmurnie' : clouds < 50 ? '🌤 Częściowe zachmurzenie' : clouds < 80 ? '⛅ Duże zachmurzenie' : '☁ Całkowite zachmurzenie';
+        console.log(`☀ Produkcja dziś: ${producedKWh} kWh (nowRatio: ${nowRatio.toFixed(2)})`);
+
+        // ── Badges (Weather Code) ────────────────────────
+        const wCode = data.current?.weather_code ?? 0;
+        let wIcon = '', wText = '';
+
+        // Mapowanie kodów WMO na ikony i tekst
+        if (wCode === 0) {
+            wIcon = isDay ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            wText = 'Bezchmurnie';
+        } else if (wCode === 1 || wCode === 2) {
+            wIcon = isDay ? '<i class="fas fa-cloud-sun"></i>' : '<i class="fas fa-cloud-moon"></i>';
+            wText = 'Małe zachmurzenie';
+        } else if (wCode === 3) {
+            wIcon = '<i class="fas fa-cloud"></i>';
+            wText = 'Pochmurno';
+        } else if (wCode >= 45 && wCode <= 48) {
+            wIcon = '<i class="fas fa-smog"></i>';
+            wText = 'Mgła';
+        } else if (wCode >= 51 && wCode <= 67) {
+            wIcon = '<i class="fas fa-cloud-rain"></i>';
+            wText = 'Deszcz';
+        } else if (wCode >= 71 && wCode <= 77) {
+            wIcon = '<i class="fas fa-snowflake"></i>';
+            wText = 'Śnieg';
+        } else if (wCode >= 80 && wCode <= 82) {
+            wIcon = '<i class="fas fa-cloud-showers-heavy"></i>';
+            wText = 'Ulewa';
+        } else if (wCode >= 95) {
+            wIcon = '<i class="fas fa-bolt"></i>';
+            wText = 'Burza';
+        } else {
+            wIcon = '<i class="fas fa-cloud"></i>';
+            wText = 'Pochmurno';
+        }
+
         const badgesEl = document.getElementById('sw-badges');
-        if(badgesEl) badgesEl.innerHTML = `<span class="sw-season-badge sw-animate-in">${season.label}</span>` + `<span class="sw-season-badge sw-animate-in" style="background:rgba(125,211,252,0.1);border-color:rgba(125,211,252,0.25);color:#7DD3FC;">${cloudLabel} ${clouds}%</span>`;
+        if (badgesEl) {
+            badgesEl.innerHTML =
+                `<span class="sw-season-badge sw-animate-in">${season.label}</span>` +
+                `<span class="sw-season-badge sw-animate-in" style="background:rgba(125,211,252,0.1);border-color:rgba(125,211,252,0.25);color:#7DD3FC;">${wIcon} ${wText} (${clouds}%)</span>`;
+        }
         
-        const loadingEl = document.getElementById('sw-loading');
-        if(loadingEl) loadingEl.style.display = 'none';
+        // ── Ukryj loading, pokaż canvas ───────────────────
+        if (loadingEl) loadingEl.style.display = 'none';
         
         const canvas = document.getElementById('solarCanvas');
-        if(canvas) { 
+        if (canvas) {
             canvas.style.display = 'block'; 
             canvas.classList.remove('sw-animate-in');
             void canvas.offsetWidth; // trigger reflow
             canvas.classList.add('sw-animate-in');
             
-            solarState = { sunriseTs, sunsetTs, nowTs, radiation, clouds, daily: data.daily, currentProduction: producedKWh };
+            solarState = {
+                sunriseTs, sunsetTs, nowTs,
+                radiation, clouds,
+                daily: data.daily,
+                currentProduction: producedKWh
+            };
+
             drawSolarCurve(); 
+        } else {
+            console.warn('☀ Nie znaleziono elementu #solarCanvas!');
         }
         
         // Animacja wartości statystyk
         document.querySelectorAll('.sw-stat-val').forEach(el => {
-             el.classList.remove('sw-animate-in');
-             void el.offsetWidth;
-             el.classList.add('sw-animate-in');
+            el.classList.remove('sw-animate-in');
+            void el.offsetWidth;
+            el.classList.add('sw-animate-in');
         });
         
-        renderForecast(currentForecastView);
+        // Prognoza
+        if (typeof renderForecast === 'function') {
+            renderForecast(currentForecastView);
+        }
 
+        // Auto-odświeżanie co 10 min
         solarTimeout = setTimeout(loadSolarData, 10 * 60 * 1000);
+
     } catch (err) {
-        const loadingEl = document.getElementById('sw-loading');
-        if(loadingEl) {
+        // Rozróżniamy timeout od innych błędów
+        const isTimeout = err.name === 'AbortError';
+        const msg = isTimeout
+            ? '⏱ Timeout — serwer nie odpowiedział w 8s'
+            : `⚠ ${err.message}`;
+
+        console.error('☀ Solar widget błąd:', err);
+
+        if (loadingEl) {
             loadingEl.style.display = 'flex';
             loadingEl.innerHTML = `
-                <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
-                    <span style="color:rgba(239,68,68,0.9)">⚠ Błąd pobierania danych</span>
-                    <button id="sw-retry-btn" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:rgba(255,255,255,0.9); padding:5px 14px; border-radius:100px; font-size:0.75rem; cursor:pointer;">Spróbuj ponownie ↻</button>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+                    <span style="color:rgba(239,68,68,0.9); font-size:0.85rem;">${msg}</span>
+                    <button id="sw-retry-btn" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:rgba(255,255,255,0.9); padding:5px 14px; border-radius:100px; font-size:0.75rem; cursor:pointer;">
+                        Spróbuj ponownie ↻
+                    </button>
                 </div>
             `;
-            document.getElementById('sw-retry-btn').addEventListener('click', () => {
-                loadingEl.innerHTML = '<div class="sw-spinner"></div> Pobieranie danych...';
-                loadSolarData();
-            });
+            const retryBtn = document.getElementById('sw-retry-btn');
+            if (retryBtn) {
+                retryBtn.addEventListener('click', () => {
+                    loadingEl.innerHTML = '<div class="sw-spinner"></div> Pobieranie danych...';
+                    loadSolarData();
+                });
+            }
         }
-        console.warn('Solar widget error:', err);
+
+        // Spróbuj ponownie za 2 minuty po błędzie
+        solarTimeout = setTimeout(loadSolarData, 2 * 60 * 1000);
+
     } finally {
-        const refreshBtn = document.getElementById('sw-refresh-btn');
-        if(refreshBtn) refreshBtn.classList.remove('loading');
+        const btn = document.getElementById('sw-refresh-btn');
+        if (btn) btn.classList.remove('loading');
     }
 }
 loadSolarData();

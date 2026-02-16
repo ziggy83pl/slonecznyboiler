@@ -262,17 +262,13 @@
                     <!-- Nagłówek – tytuł + źródła danych -->
                     <div class="sw-header">
                         <div>
-                            <div class="sw-title">Nasłonecznienie dzisiaj – Łomża (53.18°N, 22.06°E)</div>
+                            <div class="sw-title">Nasłonecznienie dzisiaj – Łomża <span id="sw-current-temp" style="color:var(--sun); margin-left:6px;"></span></div>
                             <div style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;" id="sw-badges">
                                 <span class="sw-season-badge" id="sw-season">⏳ Ładowanie...</span>
                             </div>
                         </div>
                         <div style="text-align:right;">
                             <button id="sw-refresh-btn" class="sw-refresh-btn" type="button"><span class="sw-refresh-icon">↻</span> Odśwież dane</button>
-                            <div class="sw-source">
-                                Dane: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> +
-                                <a href="https://sunrise-sunset.org/api" target="_blank" rel="noopener">Sunrise-Sunset API</a>
-                            </div>
                         </div>
                     </div>
                     <!-- Wykres sinusoidy nasłonecznienia (Canvas) -->

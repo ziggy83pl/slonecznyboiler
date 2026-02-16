@@ -703,9 +703,6 @@ footer {
     display: flex; align-items: center; gap: 8px;
 }
 .sw-title::before { content: '☀'; font-size: 1rem; }
-.sw-source {
-    font-size: 0.7rem; color: rgba(255,255,255,0.3);
-}
 .sw-refresh-btn {
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);
@@ -723,8 +720,6 @@ footer {
     color: var(--sun);
     border-color: var(--sun);
 }
-.sw-source a { color: rgba(245,158,11,0.6); text-decoration: none; }
-.sw-source a:hover { color: #F59E0B; }
 
 /* Canvas – wykres sinusoidy */
 .sw-canvas-wrap {

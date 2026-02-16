@@ -331,14 +331,6 @@ if (mapContainer) {
     });
 }
 
-// ── VISITOR COUNTER ──────────────────────────────────
-const counterEl = document.getElementById('visit-count');
-if (counterEl) {
-    // Nowy licznik — hits.seeyoufarm.com (darmowy, działa jako obrazek SVG)
-    // Serwis ten generuje obrazek, więc wstawiamy go bezpośrednio do HTML zamiast używać fetch()
-    counterEl.innerHTML = `<img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=slonecznyboiler.pages.dev&count_bg=%23F59E0B&title_bg=%231C1917&title=odwiedzin" alt="Licznik odwiedzin" style="vertical-align: middle; height: 22px;">`;
-}
-
 // ── SOLAR WIDGET ─────────────────────────────────────
 const LAT        = 53.1789;  // szerokość geograficzna (Łomża)
 const LNG        = 22.0593;  // długość geograficzna  (Łomża)

@@ -334,18 +334,9 @@ if (mapContainer) {
 // ── VISITOR COUNTER ──────────────────────────────────
 const counterEl = document.getElementById('visit-count');
 if (counterEl) {
-    // Unikalny klucz dla Twojej strony
-    const namespace = 'sloneczny-bojler-lomza-v1';
-    const key = 'visits';
-    
-    fetch(`https://api.countapi.xyz/hit/${namespace}/${key}`)
-        .then(res => res.json())
-        .then(data => {
-            counterEl.textContent = data.value;
-        })
-        .catch(() => {
-            counterEl.textContent = '124'; // Wartość startowa w razie błędu
-        });
+    // Nowy licznik — hits.seeyoufarm.com (darmowy, działa jako obrazek SVG)
+    // Serwis ten generuje obrazek, więc wstawiamy go bezpośrednio do HTML zamiast używać fetch()
+    counterEl.innerHTML = `<img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=slonecznyboiler.pages.dev&count_bg=%23F59E0B&title_bg=%231C1917&title=odwiedzin" alt="Licznik odwiedzin" style="vertical-align: middle; height: 22px;">`;
 }
 
 // ── SOLAR WIDGET ─────────────────────────────────────

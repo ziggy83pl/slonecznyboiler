@@ -2,17 +2,23 @@
 // ── 1. Definicja inputs (sprawdź czy ID zgadzają się z HTML!) ──
 const inputs = {
     volume:  { el: document.getElementById('range-volume'),  out: document.getElementById('val-volume'),  unit: ' L' },
+    heater:  { el: document.getElementById('range-heater'),  out: document.getElementById('val-heater'),  unit: ' kW' },
     persons: { el: document.getElementById('range-persons'), out: document.getElementById('val-persons'), unit: '' },
     price:   { el: document.getElementById('range-price'),   out: document.getElementById('val-price'),   unit: ' zł' },
     sunny:   { el: document.getElementById('range-sunny'),   out: document.getElementById('val-sunny'),   unit: '' },
+    tilt:    { el: document.getElementById('range-tilt'),    out: document.getElementById('val-tilt'),    unit: '°' },
+    orient:  { el: document.getElementById('select-orientation'), out: null, unit: '' },
 };
 
 // ── 2. Sprawdź czy wszystkie elementy istnieją ──────
 // (jeśli któryś zwróci null w konsoli — masz błąd ID w HTML)
 console.log('Kalkulator — elementy:', {
     'range-volume':  document.getElementById('range-volume'),
+    'range-heater':  document.getElementById('range-heater'),
     'range-persons': document.getElementById('range-persons'),
     'range-price':   document.getElementById('range-price'),
+    'range-tilt':    document.getElementById('range-tilt'),
+    'select-orientation': document.getElementById('select-orientation'),
     'range-sunny':   document.getElementById('range-sunny'),
     'result-energy': document.getElementById('result-energy'),
     'result-cost':   document.getElementById('result-cost'),
@@ -24,9 +30,12 @@ console.log('Kalkulator — elementy:', {
 function calcUpdate() {
     // Bezpieczne odczytanie — jeśli element nie istnieje, użyj domyślnej wartości
     const vol     = inputs.volume.el  ? +inputs.volume.el.value  : 180;
+    const heaterPower = inputs.heater.el ? +inputs.heater.el.value : 2.0;
     const persons = inputs.persons.el ? +inputs.persons.el.value : 4;
     const price   = inputs.price.el   ? +inputs.price.el.value   : 1.10;
     const sunny   = inputs.sunny.el   ? +inputs.sunny.el.value   : 180;
+    const tilt    = inputs.tilt.el    ? +inputs.tilt.el.value    : 35;
+    const orient  = inputs.orient.el  ? +inputs.orient.el.value  : 1.0;
 
     // Energia do podgrzania wody: Q = m × c × ΔT / 3600
     // ~50L/os/dzień, ΔT = 35°C, c = 4.186 kJ/(kg·K)
@@ -40,9 +49,16 @@ function calcUpdate() {
     const totalPerYear    = totalPerDay * 365;
     const costPerYear     = totalPerYear * price;
 
+    // Współczynnik wydajności w zależności od kąta nachylenia (uproszczony model dla Polski)
+    // Optimum ~35 stopni (1.0). Płasko (0) ~0.85. Pionowo (90) ~0.7.
+    let tiltEff = 1.0;
+    if (tilt < 30) tiltEff = 0.85 + (tilt / 30) * 0.15; // Wzrost od 0.85 do 1.0
+    else if (tilt > 45) tiltEff = 1.0 - ((tilt - 45) / 45) * 0.3; // Spadek od 1.0 do 0.7
+    // (Pomiędzy 30 a 45 uznajemy za optimum = 1.0)
+
     // Pokrycie słoneczne: większy bojler = lepszy akumulator
     const volumeFactor    = 0.78 + Math.min(0.17, (vol - 50) / 1500);
-    const solarCoverage   = (sunny / 365) * volumeFactor;
+    const solarCoverage   = (sunny / 365) * volumeFactor * tiltEff * orient;
     const saving          = costPerYear * solarCoverage;
 
     const investmentCost  = 3200;
@@ -64,6 +80,99 @@ function calcUpdate() {
     if (savingSub) {
         savingSub.textContent = `zł oszczędności (pokrycie ok. ${Math.round(solarCoverage * 100)}%)`;
     }
+
+    // ── Aktualizacja sekcji "Przykład obliczeniowy" ──
+    // Obliczamy energię potrzebną do podgrzania wody o 45 stopni (10 -> 55)
+    // Wzór: Litry * 4.186 * DeltaT / 3600 = kWh
+    const exEnergy = (vol * 4.186 * 45) / 3600;
+    const exCost   = exEnergy * price;
+
+    const exTitle = document.getElementById('ex-title');
+    if (exTitle) exTitle.textContent = `Przykład: Ile kosztuje jednorazowe podgrzanie bojlera ${vol}L?`;
+
+    const exDesc = document.getElementById('ex-desc');
+    if (exDesc) exDesc.innerHTML = `Aby podgrzać ${vol} litrów wody (standardowy bojler) od 10°C (woda z sieci) do 55°C (ciepła woda użytkowa), potrzeba <strong>~${exEnergy.toFixed(1)} kWh</strong> energii. Zobacz, ile to kosztuje:`;
+
+    const exSourceElec = document.getElementById('ex-source-elec');
+    if (exSourceElec) exSourceElec.textContent = `⚡ Prąd z sieci (${price.toFixed(2)} zł/kWh):`;
+
+    const exCostElec = document.getElementById('ex-cost-elec');
+    if (exCostElec) exCostElec.textContent = `~${exCost.toFixed(2)} zł`;
+
+    // ── Nowe obliczenia: Czas i Wydajność ──
+
+    // Rekomendacja mocy grzałki (np. 1kW na 60L dla optymalnego czasu)
+    const recPower = (vol / 60).toFixed(1);
+    const recEl = document.getElementById('rec-heater');
+    if (recEl) recEl.textContent = `${recPower} kW`;
+
+    // Rekomendowana ilość paneli (dla wybranej grzałki)
+    // Zakładamy panel 450W. Moc paneli powinna pokrywać moc grzałki (lub lekko przewyższać).
+    const panelsCountCalc = Math.ceil((heaterPower * 1000) / 450);
+    const recPanelsCalcEl = document.getElementById('rec-panels-calc');
+    if (recPanelsCalcEl) recPanelsCalcEl.textContent = `${panelsCountCalc} szt.`;
+
+    // Aktualizacja etykiety czasu (dynamiczna moc)
+    const timeLabel = document.getElementById('ex-time-label');
+    if (timeLabel) timeLabel.textContent = `Czas nagrzewania (grzałka ${heaterPower.toFixed(1)} kW)`;
+    
+    // 1. Czas nagrzewania (dla wybranej mocy grzałki)
+    // Czas = Energia (kWh) / Moc (kW)
+    const timeHoursTotal = exEnergy / heaterPower;
+    const timeH = Math.floor(timeHoursTotal);
+    const timeM = Math.round((timeHoursTotal - timeH) * 60);
+    
+    const exTime = document.getElementById('ex-time');
+    if (exTime) exTime.textContent = `${timeH}h ${timeM}min`;
+
+    // 1b. Sugerowana ilość paneli (Standard 500W - 600W Bifacial)
+    // Zakładamy bezpiecznie panel 500W jako dzielnik
+    const panelsNeeded = Math.ceil((heaterPower * 1000) / 500);
+    const exPanels = document.getElementById('ex-panels');
+    if (exPanels) exPanels.textContent = `${panelsNeeded} szt. (500W+)`;
+
+    // 1c. Info o dużej mocy (zielony komunikat)
+    const powerNote = document.getElementById('ex-power-note');
+    if (powerNote) {
+        if (heaterPower > parseFloat(recPower)) {
+            powerNote.style.display = 'block';
+            powerNote.className = 'power-note success';
+            powerNote.innerHTML = `✅ <strong>Duża moc grzałki!</strong> Woda nagrzeje się bardzo szybko. Pamiętaj, że falownik musi obsłużyć tę moc (wymaga min. ${panelsNeeded} paneli 500W).`;
+        } else {
+            powerNote.style.display = 'none';
+        }
+    }
+
+    // 2. Ilość pryszniców (zakładamy ok. 40L ciepłej wody na szybki prysznic)
+    const showersCount = Math.floor(vol / 40);
+    const exShowers = document.getElementById('ex-showers');
+    if (exShowers) exShowers.textContent = `ok. ${showersCount} osób`;
+
+    // 3. Kontekst użycia (Osoby vs Pojemność)
+    // Zapotrzebowanie dzienne: osoby * 50L
+    const dailyNeed = persons * 50;
+    // Ile razy trzeba nagrzać bojler?
+    const cyclesVal = dailyNeed / vol;
+    const cycles    = cyclesVal.toFixed(1);
+    
+    const exUsageNote = document.getElementById('ex-usage-note');
+    if (exUsageNote) {
+        exUsageNote.className = 'example-usage-note'; // Reset klasy
+        let noteHTML = '';
+
+        if (cyclesVal > 2.0) {
+            exUsageNote.classList.add('warning');
+            noteHTML = `⚠️ <strong>Uwaga: Bojler może być za mały!</strong><br>Dla ${persons} osób potrzeba ok. ${dailyNeed}L wody. Przy tej pojemności trzeba ją grzać aż <strong>${cycles} razy</strong> na dobę.`;
+        } else {
+            noteHTML = `Dla <strong>${persons} osób</strong> potrzeba ok. <strong>${dailyNeed}L</strong> ciepłej wody na dobę. `;
+            if (dailyNeed <= vol) {
+                noteHTML += `Pojemność bojlera <strong>(${vol}L)</strong> jest wystarczająca na cały dzień bez dogrzewania.`;
+            } else {
+                noteHTML += `Przy pojemności <strong>${vol}L</strong> woda musi zostać podgrzana (wymieniona) ok. <strong>${cycles} razy</strong> w ciągu doby.`;
+            }
+        }
+        exUsageNote.innerHTML = noteHTML;
+    }
 }
 
 // ── 4. Eventy na suwakach ───────────────────────────
@@ -77,6 +186,7 @@ Object.entries(inputs).forEach(([key, obj]) => {
         if (obj.out) {
             obj.out.textContent = (key === 'price')
                 ? val.toFixed(2) + obj.unit
+                : (key === 'heater') ? val.toFixed(1) + obj.unit
                 : val + obj.unit;
         }
         calcUpdate();
@@ -87,12 +197,37 @@ Object.entries(inputs).forEach(([key, obj]) => {
         const val = +obj.el.value;
         obj.out.textContent = (key === 'price')
             ? val.toFixed(2) + obj.unit
+            : (key === 'heater') ? val.toFixed(1) + obj.unit
+            : (key === 'tilt')   ? val + obj.unit
             : val + obj.unit;
     }
 });
 
 // ── 5. ★ KLUCZOWE: wywołaj przy starcie ─────────────
 calcUpdate();
+
+// ── Przycisk automatycznego doboru ───────────────────
+const autoSetBtn = document.getElementById('btn-auto-set');
+if (autoSetBtn) {
+    autoSetBtn.addEventListener('click', () => {
+        // Optymalne wartości dla 4-osobowej rodziny
+        const optimalValues = {
+            persons: 4,
+            volume: 200,
+            heater: 3.0,
+            tilt: 35,
+            orient: "1.0",
+        };
+
+        // Ustaw wartości i wywołaj zdarzenie 'input' dla każdego suwaka/selecta
+        Object.entries(optimalValues).forEach(([key, value]) => {
+            if (inputs[key] && inputs[key].el) {
+                inputs[key].el.value = value;
+                inputs[key].el.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+    });
+}
 
 // ── FORM ─────────────────────────────────────────────
 const contactForm = document.getElementById('contact-form');
@@ -940,4 +1075,43 @@ if (heroSavingsEl) {
         if (progress < 1) requestAnimationFrame(animateHeroSavings);
     }
     requestAnimationFrame(animateHeroSavings);
+}
+
+// ── BOILER ANIMATION ON SCROLL ───────────────────────
+let boilerAnimFrame;
+const boilerObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        const tempEl = document.getElementById('boiler-temp');
+        if (entry.isIntersecting) {
+            entry.target.classList.add('animate-boiler');
+            
+            // Animacja licznika temperatury (10 -> 55)
+            if (tempEl) {
+                if (boilerAnimFrame) cancelAnimationFrame(boilerAnimFrame);
+                let start = null;
+                const duration = 4000; // 4s (zgodnie z CSS)
+                
+                const step = (timestamp) => {
+                    if (!start) start = timestamp;
+                    const progress = Math.min((timestamp - start) / duration, 1);
+                    // Easing ease-out (cubic) - dopasowany do animacji CSS
+                    const ease = 1 - Math.pow(1 - progress, 3);
+                    const val = Math.floor(10 + (55 - 10) * ease);
+                    tempEl.textContent = val + '°C';
+                    
+                    if (progress < 1) boilerAnimFrame = requestAnimationFrame(step);
+                };
+                boilerAnimFrame = requestAnimationFrame(step);
+            }
+        } else {
+            entry.target.classList.remove('animate-boiler');
+            if (boilerAnimFrame) cancelAnimationFrame(boilerAnimFrame);
+            if (tempEl) tempEl.textContent = '10°C';
+        }
+    });
+}, { threshold: 0.9 }); // Uruchom, gdy widoczne w 90%
+
+const boilerVisual = document.querySelector('.stratification-visual');
+if (boilerVisual) {
+    boilerObserver.observe(boilerVisual);
 }

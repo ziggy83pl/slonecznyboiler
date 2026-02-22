@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog i Dziennik Rozwoju | Słoneczny Bojler</title>
+    <meta name="description" content="Dowiedz się, jak działa nasz kalkulator oszczędności, skąd pobieramy dane o nasłonecznieniu i jakie technologie napędzają Słoneczny Bojler.">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+
+    <nav>
+        <div class="nav-inner">
+            <a href="index.html" class="logo" style="text-decoration: none;">
+                Słoneczny<span>Bojler</span> <span style="font-size: 0.8em; opacity: 0.7; font-weight: 400;">/ Blog</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="index.html">Strona główna</a></li>
+                <li><a href="index.html#kalkulator">Kalkulator</a></li>
+                <li><a href="index.html#kontakt" class="btn-nav">Darmowa wycena</a></li>
+            </ul>
+            <button id="hamburger-btn" class="hamburger" type="button" aria-label="Otwórz menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Nagłówek Bloga -->
+    <header class="blog-header">
+        <div class="section-inner">
+            <div class="hero-badge">📚 Baza Wiedzy</div>
+            <h1>Co napędza <br><em>Słoneczny Bojler</em>?</h1>
+            <p class="hero-sub">Transparentnie o technologii, fizyce i rozwiązaniach, które wdrożyliśmy na tej stronie, aby pomóc Ci oszczędzać.</p>
+        </div>
+    </header>
+
+    <!-- Lista wpisów -->
+    <section class="blog-section">
+        <div class="section-inner">
+            <!-- Pasek filtrów -->
+            <div class="blog-filters">
+                <button class="filter-btn active" data-filter="all">Wszystkie</button>
+                <button class="filter-btn" data-filter="Technologia">Technologia</button>
+                <button class="filter-btn" data-filter="API & Dane">API & Dane</button>
+                <button class="filter-btn" data-filter="UX / Design">UX / Design</button>
+            </div>
+
+            <div class="blog-grid">
+
+                <!-- Artykuł 1: O Kalkulatorze -->
+                <article class="blog-card" data-tags="Technologia UX / Design">
+                    <div class="blog-card-img" style="background: linear-gradient(135deg, #fff 0%, #f3f4f6 100%); display:flex; align-items:center; justify-content:center; font-size:3rem;">
+                        🧮
+                    </div>
+                    <div class="blog-card-content">
+                        <div class="blog-meta">
+                            <span class="blog-tag">Technologia</span>
+                            <span class="blog-date">Aktualizacja: Funkcje</span>
+                        </div>
+                        <h3>Jak działa nasz Kalkulator Oszczędności?</h3>
+                        <p>To nie jest zwykły formularz. Nasz kalkulator wykorzystuje prawa fizyki (ciepło właściwe wody) oraz dane geograficzne, aby precyzyjnie oszacować zużycie energii.</p>
+                        <ul class="blog-list">
+                            <li>Uwzględnia pojemność bojlera i temperaturę wody z sieci (10°C).</li>
+                            <li>Symuluje straty postojowe zbiornika.</li>
+                            <li>Oblicza czas nagrzewania w zależności od mocy grzałki.</li>
+                            <li>Wizualizuje "stratyfikację" (warstwowe układanie się wody).</li>
+                        </ul>
+                    </div>
+                </article>
+
+                <!-- Artykuł 2: O Widgecie Solarnym -->
+                <article class="blog-card" data-tags="API & Dane Technologia">
+                    <div class="blog-card-img" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); display:flex; align-items:center; justify-content:center; font-size:3rem;">
+                        ☀️
+                    </div>
+                    <div class="blog-card-content">
+                        <div class="blog-meta">
+                            <span class="blog-tag">API & Dane</span>
+                            <span class="blog-date">Nowość</span>
+                        </div>
+                        <h3>Widget Solarny: Dane na żywo</h3>
+                        <p>Na stronie głównej wdrożyliśmy zaawansowany widget pogodowy. Łączy się on z API Open-Meteo, aby pobierać rzeczywiste dane dla Łomży.</p>
+                        <ul class="blog-list">
+                            <li>Analizuje promieniowanie krótkofalowe (W/m²).</li>
+                            <li>Rysuje wykres sinusoidy dnia (wschód/zachód słońca).</li>
+                            <li>Oblicza szacunkową produkcję prądu w czasie rzeczywistym.</li>
+                            <li>Pokazuje prognozę pogody na 7 dni.</li>
+                        </ul>
+                    </div>
+                </article>
+
+                <!-- Artykuł 3: O Wizualizacjach -->
+                <article class="blog-card" data-tags="UX / Design">
+                    <div class="blog-card-img" style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); display:flex; align-items:center; justify-content:center; font-size:3rem;">
+                        🎨
+                    </div>
+                    <div class="blog-card-content">
+                        <div class="blog-meta">
+                            <span class="blog-tag">UX / Design</span>
+                            <span class="blog-date">Interakcja</span>
+                        </div>
+                        <h3>Interaktywne wizualizacje</h3>
+                        <p>Chcemy, aby techniczne aspekty były zrozumiałe. Dlatego stworzyliśmy interaktywne elementy, które reagują na Twoje ustawienia.</p>
+                        <ul class="blog-list">
+                            <li><strong>Kąt nachylenia:</strong> Panel w kalkulatorze obraca się i rzuca cień zgodnie z fizyką.</li>
+                            <li><strong>Bojler:</strong> Animacja napełniania ciepłą wodą pokazuje proces nagrzewania.</li>
+                            <li><strong>Mapa:</strong> Interaktywny obszar działania z pulsującymi punktami miast.</li>
+                        </ul>
+                    </div>
+                </article>
+
+            </div>
+            
+            <div style="text-align: center; margin-top: 60px;">
+                <a href="index.html" class="btn-primary">Wróć na stronę główną</a>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div id="global-trusted-logos" style="margin-bottom: 20px;"></div>
+        <p>© 2026 SłonecznyBojler — Montaż systemów PV do podgrzewania wody</p>
+    </footer>
+
+    <script src="script.js"></script>
+    <script src="portfolio-logos.js" defer></script>
+</body>
+</html>

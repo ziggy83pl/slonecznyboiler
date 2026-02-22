@@ -8,6 +8,7 @@ const inputs = {
     sunny:   { el: document.getElementById('range-sunny'),   out: document.getElementById('val-sunny'),   unit: '' },
     tilt:    { el: document.getElementById('range-tilt'),    out: document.getElementById('val-tilt'),    unit: '°' },
     orient:  { el: document.getElementById('select-orientation'), out: null, unit: '' },
+    panelPower: { el: document.getElementById('select-panel-power'), out: null, unit: '' },
 };
 
 // ── 2. Sprawdź czy wszystkie elementy istnieją ──────
@@ -19,12 +20,55 @@ console.log('Kalkulator — elementy:', {
     'range-price':   document.getElementById('range-price'),
     'range-tilt':    document.getElementById('range-tilt'),
     'select-orientation': document.getElementById('select-orientation'),
+    'select-panel-power': document.getElementById('select-panel-power'),
     'range-sunny':   document.getElementById('range-sunny'),
     'result-energy': document.getElementById('result-energy'),
     'result-cost':   document.getElementById('result-cost'),
     'result-saving': document.getElementById('result-saving'),
     'result-payback':document.getElementById('result-payback'),
 });
+
+// ── State for animations & Helpers ────────────────
+let animationState = {
+    previousExCost: 0,
+};
+
+/**
+ * Animates a number value in a DOM element.
+ * @param {HTMLElement} element The element to update.
+ * @param {number} start The starting number.
+ * @param {number} end The final number.
+ * @param {number} duration Animation duration in ms.
+ * @param {object} options Formatting options {prefix, suffix, decimals}.
+ */
+function animateValue(element, start, end, duration, { prefix = '', suffix = '', decimals = 0 } = {}) {
+    if (!element) return;
+    if (element.animationFrameId) cancelAnimationFrame(element.animationFrameId);
+
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+        const currentValue = start + (end - start) * ease;
+        element.textContent = `${prefix}${currentValue.toFixed(decimals)}${suffix}`;
+
+        if (progress < 1) element.animationFrameId = requestAnimationFrame(step);
+        else element.textContent = `${prefix}${end.toFixed(decimals)}${suffix}`;
+    };
+    element.animationFrameId = requestAnimationFrame(step);
+}
+
+/**
+ * Rotates a point (px, py) around an origin (ox, oy) by an angle (cos_t, sin_t).
+ */
+function rotatePoint(px, py, ox, oy, cos_t, sin_t) {
+    const x_translated = px - ox;
+    const y_translated = py - oy;
+    const x_rotated = x_translated * cos_t - y_translated * sin_t;
+    const y_rotated = x_translated * sin_t + y_translated * cos_t;
+    return { x: ox + x_rotated, y: oy + y_rotated };
+}
 
 // ── 3. Funkcja obliczeniowa ─────────────────────────
 function calcUpdate() {
@@ -36,6 +80,7 @@ function calcUpdate() {
     const sunny   = inputs.sunny.el   ? +inputs.sunny.el.value   : 180;
     const tilt    = inputs.tilt.el    ? +inputs.tilt.el.value    : 35;
     const orient  = inputs.orient.el  ? +inputs.orient.el.value  : 1.0;
+    const panelPower = inputs.panelPower.el ? +inputs.panelPower.el.value : 450;
 
     // Energia do podgrzania wody: Q = m × c × ΔT / 3600
     // ~50L/os/dzień, ΔT = 35°C, c = 4.186 kJ/(kg·K)
@@ -55,6 +100,47 @@ function calcUpdate() {
     if (tilt < 30) tiltEff = 0.85 + (tilt / 30) * 0.15; // Wzrost od 0.85 do 1.0
     else if (tilt > 45) tiltEff = 1.0 - ((tilt - 45) / 45) * 0.3; // Spadek od 1.0 do 0.7
     // (Pomiędzy 30 a 45 uznajemy za optimum = 1.0)
+
+    // Aktualizacja wizualizacji kąta nachylenia (SVG)
+    const tiltShadow = document.getElementById('tilt-visual-shadow');
+    const tiltVisual = document.getElementById('tilt-visual-panel');
+    if (tiltVisual) {
+        tiltVisual.style.transform = `rotate(-${tilt}deg)`;
+
+        if (tiltShadow) {
+            // Panel corners relative to rect's x="0" y="-3"
+            const p_tl = {x: 0, y: -3}; // top-left
+            const p_tr = {x: 32, y: -3}; // top-right
+            const p_br = {x: 32, y: 3};  // bottom-right
+            const p_bl = {x: 0, y: 3};   // bottom-left
+
+            // Rotation origin relative to rect's x="0" y="-3"
+            // This should match the transform-origin in HTML (0px from x, 6px from y, which is y=-3+6=3)
+            const rot_x = 0; // Rotate around x=0 (left edge)
+            const rot_y = 3; // Rotate around y=3 (bottom edge)
+
+            const theta = -tilt * Math.PI / 180; // Convert to radians (negative for clockwise rotation in SVG)
+            const cos_theta = Math.cos(theta);
+            const sin_theta = Math.sin(theta);
+
+            // Calculate rotated corners
+            const rp_tl = rotatePoint(p_tl.x, p_tl.y, rot_x, rot_y, cos_theta, sin_theta);
+            const rp_tr = rotatePoint(p_tr.x, p_tr.y, rot_x, rot_y, cos_theta, sin_theta);
+            const rp_br = rotatePoint(p_br.x, p_br.y, rot_x, rot_y, cos_theta, sin_theta);
+            const rp_bl = rotatePoint(p_bl.x, p_bl.y, rot_x, rot_y, cos_theta, sin_theta);
+
+            // Shadow projection vector (depends on tilt)
+            // Shadow moves left as panel goes vertical, down as panel goes flat
+            const shadow_proj_x = -1 * (tilt / 90) * 10; // Max 10px horizontal shift
+            const shadow_proj_y = 1 * (1 - tilt / 90) * 5;  // Max 5px vertical shift
+
+            // Shadow polygon points (bottom-left, bottom-right, projected top-right, projected top-left)
+            const s_tl = {x: rp_tl.x + shadow_proj_x, y: rp_tl.y + shadow_proj_y};
+            const s_tr = {x: rp_tr.x + shadow_proj_x, y: rp_tr.y + shadow_proj_y};
+
+            tiltShadow.setAttribute('points', `${rp_bl.x},${rp_bl.y} ${rp_br.x},${rp_br.y} ${s_tr.x},${s_tr.y} ${s_tl.x},${s_tl.y}`);
+        }
+    }
 
     // Pokrycie słoneczne: większy bojler = lepszy akumulator
     const volumeFactor    = 0.78 + Math.min(0.17, (vol - 50) / 1500);
@@ -97,7 +183,10 @@ function calcUpdate() {
     if (exSourceElec) exSourceElec.textContent = `⚡ Prąd z sieci (${price.toFixed(2)} zł/kWh):`;
 
     const exCostElec = document.getElementById('ex-cost-elec');
-    if (exCostElec) exCostElec.textContent = `~${exCost.toFixed(2)} zł`;
+    if (exCostElec) {
+        animateValue(exCostElec, animationState.previousExCost, exCost, 600, { prefix: '~', suffix: ' zł', decimals: 2 });
+    }
+    animationState.previousExCost = exCost; // Zapisz wartość na następny raz
 
     // ── Nowe obliczenia: Czas i Wydajność ──
 
@@ -108,9 +197,9 @@ function calcUpdate() {
 
     // Rekomendowana ilość paneli (dla wybranej grzałki)
     // Zakładamy panel 450W. Moc paneli powinna pokrywać moc grzałki (lub lekko przewyższać).
-    const panelsCountCalc = Math.ceil((heaterPower * 1000) / 450);
+    const panelsCountCalc = Math.ceil((heaterPower * 1000) / panelPower);
     const recPanelsCalcEl = document.getElementById('rec-panels-calc');
-    if (recPanelsCalcEl) recPanelsCalcEl.textContent = `${panelsCountCalc} szt.`;
+    if (recPanelsCalcEl) recPanelsCalcEl.textContent = `${panelsCountCalc} szt. (${panelPower}W)`;
 
     // Aktualizacja etykiety czasu (dynamiczna moc)
     const timeLabel = document.getElementById('ex-time-label');
@@ -127,9 +216,9 @@ function calcUpdate() {
 
     // 1b. Sugerowana ilość paneli (Standard 500W - 600W Bifacial)
     // Zakładamy bezpiecznie panel 500W jako dzielnik
-    const panelsNeeded = Math.ceil((heaterPower * 1000) / 500);
+    const panelsNeeded = Math.ceil((heaterPower * 1000) / panelPower);
     const exPanels = document.getElementById('ex-panels');
-    if (exPanels) exPanels.textContent = `${panelsNeeded} szt. (500W+)`;
+    if (exPanels) exPanels.textContent = `${panelsNeeded} szt. (${panelPower}W)`;
 
     // 1c. Info o dużej mocy (zielony komunikat)
     const powerNote = document.getElementById('ex-power-note');
@@ -137,7 +226,7 @@ function calcUpdate() {
         if (heaterPower > parseFloat(recPower)) {
             powerNote.style.display = 'block';
             powerNote.className = 'power-note success';
-            powerNote.innerHTML = `✅ <strong>Duża moc grzałki!</strong> Woda nagrzeje się bardzo szybko. Pamiętaj, że falownik musi obsłużyć tę moc (wymaga min. ${panelsNeeded} paneli 500W).`;
+            powerNote.innerHTML = `✅ <strong>Duża moc grzałki!</strong> Woda nagrzeje się bardzo szybko. Pamiętaj, że falownik musi obsłużyć tę moc (wymaga min. ${panelsNeeded} paneli ${panelPower}W).`;
         } else {
             powerNote.style.display = 'none';
         }
@@ -217,6 +306,7 @@ if (autoSetBtn) {
             heater: 3.0,
             tilt: 35,
             orient: "1.0",
+            panelPower: 450,
         };
 
         // Ustaw wartości i wywołaj zdarzenie 'input' dla każdego suwaka/selecta
@@ -1114,4 +1204,50 @@ const boilerObserver = new IntersectionObserver((entries) => {
 const boilerVisual = document.querySelector('.stratification-visual');
 if (boilerVisual) {
     boilerObserver.observe(boilerVisual);
+}
+
+// ── MOBILE NAVIGATION (HAMBURGER) ───────────────────
+const nav = document.querySelector('nav');
+const hamburgerBtn = document.getElementById('hamburger-btn');
+const navLinksContainer = document.querySelector('.nav-links');
+
+if (hamburgerBtn && nav && navLinksContainer) {
+    hamburgerBtn.addEventListener('click', () => {
+        nav.classList.toggle('nav-open');
+        // Zablokuj przewijanie tła, gdy menu jest otwarte
+        document.body.style.overflow = nav.classList.contains('nav-open') ? 'hidden' : '';
+    });
+
+    // Zamknij menu po kliknięciu w link
+    navLinksContainer.addEventListener('click', (e) => {
+        if (e.target.tagName === 'A') {
+            nav.classList.remove('nav-open');
+            document.body.style.overflow = '';
+        }
+    });
+}
+
+// ── BLOG TAG FILTERING ───────────────────────────────
+const filtersContainer = document.querySelector('.blog-filters');
+const blogCards = document.querySelectorAll('.blog-card[data-tags]');
+
+if (filtersContainer && blogCards.length > 0) {
+    filtersContainer.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'BUTTON') return;
+
+        // Update active button
+        filtersContainer.querySelector('.active')?.classList.remove('active');
+        e.target.classList.add('active');
+
+        const filter = e.target.getAttribute('data-filter');
+
+        blogCards.forEach(card => {
+            const tags = card.getAttribute('data-tags');
+            if (filter === 'all' || tags.includes(filter)) {
+                card.classList.remove('hidden');
+            } else {
+                card.classList.add('hidden');
+            }
+        });
+    });
 }

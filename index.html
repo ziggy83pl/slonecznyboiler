@@ -96,9 +96,15 @@
                 <li><a href="#zalety">Zalety</a></li>
                 <li><a href="#jak-to-dziala">Jak działa</a></li>
                 <li><a href="#kalkulator">Kalkulator</a></li>
+                <li><a href="blog.html">Blog</a></li>
                 <li><a href="#obszar">Obszar</a></li>
                 <li><a href="#kontakt" class="btn-nav">Darmowa wycena</a></li>
             </ul>
+            <button id="hamburger-btn" class="hamburger" type="button" aria-label="Otwórz menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </div>
     </nav>
 
@@ -216,7 +222,7 @@
                 <div class="step-card">
                     <div class="step-num">1</div>
                     <h4>Panele PV na dachu</h4>
-                    <p>2–4 panele fotowoltaiczne montujemy na dachu lub na gruncie. Optymalnie skierowane na południe.</p>
+                    <p>Od 4+ panele fotowoltaiczne montujemy na dachu lub na gruncie. Optymalnie skierowane na południe.</p>
                 </div>
                 <div class="step-card">
                     <div class="step-num">2</div>
@@ -317,7 +323,7 @@
                             Zalecana moc: <strong id="rec-heater" style="color: var(--sun)">3.0 kW</strong> (dla szybszego nagrzewania)
                         </div>
                         <div style="font-size: 0.75rem; color: var(--ink-muted); margin-top: 2px;">
-                            Zalecana ilość paneli: <strong id="rec-panels-calc" style="color: var(--sun)">--</strong> (450W)
+                            Zalecana ilość paneli: <strong id="rec-panels-calc" style="color: var(--sun)">--</strong>
                         </div>
                     </div>
                     <div class="field">
@@ -329,7 +335,31 @@
                         <input type="range" id="range-price" min="0.50" max="1.80" value="1.10" step="0.05">
                     </div>
                     <div class="field">
-                        <label>Kąt nachylenia paneli <span id="val-tilt">35°</span></label>
+                        <label>
+                            Kąt nachylenia paneli
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <svg width="50" height="28" viewBox="0 0 50 28" style="overflow:visible; margin-left: 5px;">
+                                    <defs>
+                                        <linearGradient id="panelGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#1d4ed8"/></linearGradient>
+                                        <filter id="shadowBlur">
+                                            <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" />
+                                            <feOffset dx="0" dy="1" />
+                                            <feMerge>
+                                                <feMergeNode/>
+                                                <feMergeNode in="SourceGraphic"/>
+                                            </feMerge>
+                                        </filter>
+                                    </defs>
+                                    <line x1="0" y1="26" x2="50" y2="26" stroke="#d6d3d1" stroke-width="2" stroke-linecap="round"/>
+                                    <g transform="translate(10, 26)">
+                                        <polygon id="tilt-visual-shadow" points="0,0 0,0 0,0 0,0" fill="rgba(0,0,0,0.2)" filter="url(#shadowBlur)" style="transition: points 0.2s cubic-bezier(0.25, 1, 0.5, 1);"/>
+                                        <rect id="tilt-visual-panel" x="0" y="-3" width="32" height="6" rx="1.5" fill="url(#panelGrad)" stroke="#1e40af" stroke-width="0.5" style="transform-origin: 1px 3px; transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1); transform: rotate(-35deg);" />
+                                    </g>
+                                    <circle cx="42" cy="4" r="3" fill="#F59E0B" opacity="0.6" />
+                                </svg>
+                                <span id="val-tilt">35°</span>
+                            </div>
+                        </label>
                         <input type="range" id="range-tilt" min="0" max="90" value="35" step="5">
                     </div>
                     <div class="field">
@@ -340,6 +370,15 @@
                             <option value="0.95">Południowy-Zachód (SW)</option>
                             <option value="0.80">Wschód (E)</option>
                             <option value="0.80">Zachód (W)</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Moc pojedynczego panelu</label>
+                        <select id="select-panel-power" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:#f9fafb; color:var(--ink-soft); font-family:inherit; font-size:0.9rem; cursor:pointer; outline:none;">
+                            <option value="450" selected>450 W (Standard)</option>
+                            <option value="500">500 W</option>
+                            <option value="550">550 W</option>
+                            <option value="600">600 W (Bifacial)</option>
                         </select>
                     </div>
                     <div class="field">
@@ -370,6 +409,140 @@
                         <div class="result-label">Szacowany zwrot z inwestycji</div>
                         <div class="result-value" id="result-payback">—</div>
                         <div class="result-sub">Zestaw to koszt ok. 2500–4800 zł z montażem</div>
+                    </div>
+                </div>
+
+                <!-- ENERGY SOURCE COMPARISON (Moved from bottom) -->
+                <div style="grid-column: 1 / -1; margin-top: 30px; padding-top: 40px; border-top: 1px solid var(--border);">
+                    <div class="section-head" style="margin-bottom: 30px;">
+                        <div class="section-label">Szersza perspektywa</div>
+                        <h2 class="section-title" style="font-size: 1.8rem;">Koszt 1 kWh energii</h2>
+                        <p class="section-sub">Porównanie kosztów energii z różnych źródeł. To podstawowa jednostka, która przekłada się na realne rachunki.</p>
+                    </div>
+                    <div class="energy-comparison-chart">
+                        <!-- Słoneczny Bojler -->
+                        <div class="energy-bar-item highlight">
+                            <div class="energy-label"><span class="energy-icon">☀️</span>Słoneczny Bojler</div>
+                            <div class="energy-bar-wrap"><div class="energy-bar" style="width: 1%;"></div></div>
+                            <div class="energy-value">0,00 zł</div>
+                        </div>
+                        <!-- Drewno -->
+                        <div class="energy-bar-item">
+                            <div class="energy-label"><span class="energy-icon">🪵</span>Drewno opałowe</div>
+                            <div class="energy-bar-wrap"><div class="energy-bar" style="width: 25%;"></div></div>
+                            <div class="energy-value">~0,27 zł</div>
+                        </div>
+                        <!-- Ekogroszek -->
+                        <div class="energy-bar-item">
+                            <div class="energy-label"><span class="energy-icon">🪨</span>Ekogroszek</div>
+                            <div class="energy-bar-wrap"><div class="energy-bar" style="width: 27%;"></div></div>
+                            <div class="energy-value">~0,30 zł</div>
+                        </div>
+                        <!-- Gaz -->
+                        <div class="energy-bar-item">
+                            <div class="energy-label"><span class="energy-icon">🔥</span>Gaz ziemny</div>
+                            <div class="energy-bar-wrap"><div class="energy-bar" style="width: 29%;"></div></div>
+                            <div class="energy-value">~0,32 zł</div>
+                        </div>
+                        <!-- Pellet -->
+                        <div class="energy-bar-item">
+                            <div class="energy-label"><span class="energy-icon">🪵</span>Pellet</div>
+                            <div class="energy-bar-wrap"><div class="energy-bar" style="width: 31%;"></div></div>
+                            <div class="energy-value">~0,34 zł</div>
+                        </div>
+                        <!-- Prąd -->
+                        <div class="energy-bar-item electric">
+                            <div class="energy-label"><span class="energy-icon">⚡</span>Prąd z sieci (G11)</div>
+                            <div class="energy-bar-wrap"><div class="energy-bar" style="width: 100%;"></div></div>
+                            <div class="energy-value">1,10 zł</div>
+                        </div>
+                    </div>
+                    <p class="energy-chart-note">
+                        *Ceny są szacunkowe na Q1 2026 i uwzględniają sprawność kotła/urządzenia. Koszt "Słonecznego Bojlera" to koszt samej energii po jednorazowej inwestycji w instalację. Źródła: URE, portale branżowe.
+                    </p>
+
+                    <!-- Przykład obliczeniowy -->
+                    <div class="energy-example-box">
+                        <div class="example-icon">🌡️</div>
+                        <div>
+                            <h3 class="example-title" id="ex-title">Przykład: Ile kosztuje jednorazowe podgrzanie bojlera 180L?</h3>
+                            <p class="example-calc" id="ex-desc">
+                                Aby podgrzać 180 litrów wody (standardowy bojler) od 10°C (woda z sieci) do 55°C (ciepła woda użytkowa), potrzeba <strong>~9.4 kWh</strong> energii. Zobacz, ile to kosztuje:
+                            </p>
+                            <div class="example-costs">
+                                <div class="example-cost-item">
+                                    <span class="cost-source" id="ex-source-elec">⚡ Prąd z sieci (1,10 zł/kWh):</span>
+                                    <span class="cost-value electric-cost" id="ex-cost-elec">~10,34 zł</span>
+                                </div>
+                                <div class="example-cost-item">
+                                    <span class="cost-source">☀️ Słoneczny Bojler:</span>
+                                    <span class="cost-value solar-cost">0,00 zł</span>
+                                </div>
+                            </div>
+
+                            <!-- Nowe statystyki: Czas i Wydajność -->
+                            <div class="example-stats-grid">
+                                <div class="estat-item">
+                                    <div class="estat-icon">⏱️</div>
+                                    <div>
+                                        <div class="estat-label" id="ex-time-label">Czas nagrzewania (grzałka 2.0 kW)</div>
+                                        <div class="estat-value" id="ex-time">-- h -- min</div>
+                                    </div>
+                                </div>
+                                <div class="estat-item">
+                                    <div class="estat-icon">☀️</div>
+                                    <div>
+                                        <div class="estat-label">Wymagane panele</div>
+                                        <div class="estat-value" id="ex-panels">-- szt.</div>
+                                    </div>
+                                </div>
+                                <div class="estat-item">
+                                    <div class="estat-icon">🚿</div>
+                                    <div>
+                                        <div class="estat-label">Wystarczy na ok.</div>
+                                        <div class="estat-value" id="ex-showers">-- osób</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Miejsce na komunikat o mocy grzałki -->
+                            <div id="ex-power-note" class="power-note" style="display:none;"></div>
+
+                            <p class="example-usage-note" id="ex-usage-note">
+                                Dla wybranych 4 osób potrzeba ok. 200L wody. Ten bojler trzeba nagrzać 1.1x dziennie.
+                            </p>
+                            
+                            <div class="stratification-wrapper">
+                                <div class="stratification-visual">
+                                    <!-- Dodano tooltip zachęcający do najechania -->
+                                    <svg viewBox="0 0 140 160" class="strat-svg" data-tooltip="Symulacja nagrzewania">
+                                        <defs>
+                                            <linearGradient id="stratGrad" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stop-color="#ef4444"/>
+                                                <stop offset="45%" stop-color="#f97316"/>
+                                                <stop offset="100%" stop-color="#f59e0b"/>
+                                            </linearGradient>
+                                        </defs>
+                                        <!-- Tło (Zimna woda - zawsze widoczna pod spodem) -->
+                                        <rect x="45" y="10" width="50" height="140" rx="10" fill="#3b82f6" opacity="0.3"/>
+                                        <!-- Ciepła woda (Animowana warstwa) -->
+                                        <rect class="hot-water" x="45" y="10" width="50" height="140" rx="10" fill="url(#stratGrad)"/>
+                                        <!-- Obrys bojlera (na wierzchu) -->
+                                        <rect x="45" y="10" width="50" height="140" rx="10" fill="none" stroke="#4b5563" stroke-width="2"/>
+                                        
+                                        <path d="M50 150 L50 158 M90 150 L90 158" stroke="#4b5563" stroke-width="2"/>
+                                        <line x1="46" y1="55" x2="94" y2="55" stroke="rgba(255,255,255,0.5)" stroke-dasharray="3 2"/>
+                                        <line x1="46" y1="105" x2="94" y2="105" stroke="rgba(255,255,255,0.5)" stroke-dasharray="3 2"/>
+                                            <text id="boiler-temp" x="102" y="35" font-family="sans-serif" font-size="11" fill="#ef4444" font-weight="bold">10°C</text>
+                                        <text x="102" y="140" font-family="sans-serif" font-size="11" fill="#3b82f6" font-weight="bold">10°C</text>
+                                        <text x="38" y="80" font-family="sans-serif" font-size="10" fill="rgba(255,255,255,0.9)" text-anchor="end" style="writing-mode: vertical-rl; text-orientation: mixed;">Warstwy</text>
+                                    </svg>
+                                </div>
+                                <p class="example-stratification">
+                                    <strong>Ważna uwaga o warstwach (stratyfikacji):</strong> W pionowym bojlerze woda naturalnie układa się warstwami — najcieplejsza gromadzi się na górze. Dzięki temu masz dostęp do gorącej wody, nawet gdy słońce ogrzało tylko górną część zbiornika. Pełne "naładowanie" całego bojlera nie jest konieczne do komfortowego użytkowania.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -446,143 +619,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
-
-    <!-- ENERGY SOURCE COMPARISON -->
-    <section id="porownanie-zrodel">
-        <div class="section-inner fade-in-section">
-            <div class="section-head">
-                <div class="section-label">Szersza perspektywa</div>
-                <h2 class="section-title">Koszt 1 kWh energii do podgrzania wody</h2>
-                <p class="section-sub">Zobacz, ile kosztuje <strong>jedna kilowatogodzina (kWh)</strong> energii z różnych źródeł. To podstawowa jednostka, która przekłada się na realne koszty podgrzewania wody w Twoim domu.</p>
-            </div>
-            <div class="energy-comparison-chart">
-                <!-- Słoneczny Bojler -->
-                <div class="energy-bar-item highlight">
-                    <div class="energy-label"><span class="energy-icon">☀️</span>Słoneczny Bojler</div>
-                    <div class="energy-bar-wrap"><div class="energy-bar" style="width: 1%;"></div></div>
-                    <div class="energy-value">0,00 zł</div>
-                </div>
-                <!-- Drewno -->
-                <div class="energy-bar-item">
-                    <div class="energy-label"><span class="energy-icon">🪵</span>Drewno opałowe</div>
-                    <div class="energy-bar-wrap"><div class="energy-bar" style="width: 25%;"></div></div>
-                    <div class="energy-value">~0,27 zł</div>
-                </div>
-                <!-- Ekogroszek -->
-                <div class="energy-bar-item">
-                    <div class="energy-label"><span class="energy-icon">🪨</span>Ekogroszek</div>
-                    <div class="energy-bar-wrap"><div class="energy-bar" style="width: 27%;"></div></div>
-                    <div class="energy-value">~0,30 zł</div>
-                </div>
-                <!-- Gaz -->
-                <div class="energy-bar-item">
-                    <div class="energy-label"><span class="energy-icon">🔥</span>Gaz ziemny</div>
-                    <div class="energy-bar-wrap"><div class="energy-bar" style="width: 29%;"></div></div>
-                    <div class="energy-value">~0,32 zł</div>
-                </div>
-                <!-- Pellet -->
-                <div class="energy-bar-item">
-                    <div class="energy-label"><span class="energy-icon">🪵</span>Pellet</div>
-                    <div class="energy-bar-wrap"><div class="energy-bar" style="width: 31%;"></div></div>
-                    <div class="energy-value">~0,34 zł</div>
-                </div>
-                <!-- Prąd -->
-                <div class="energy-bar-item electric">
-                    <div class="energy-label"><span class="energy-icon">⚡</span>Prąd z sieci (G11)</div>
-                    <div class="energy-bar-wrap"><div class="energy-bar" style="width: 100%;"></div></div>
-                    <div class="energy-value">1,10 zł</div>
-                </div>
-            </div>
-            <p class="energy-chart-note">
-                *Ceny są szacunkowe na Q1 2026 i uwzględniają sprawność kotła/urządzenia. Koszt "Słonecznego Bojlera" to koszt samej energii po jednorazowej inwestycji w instalację. Źródła: URE, portale branżowe.
-            </p>
-
-            <!-- Przykład obliczeniowy -->
-            <div class="energy-example-box">
-                <div class="example-icon">🌡️</div>
-                <div>
-                    <h3 class="example-title" id="ex-title">Przykład: Ile kosztuje jednorazowe podgrzanie bojlera 180L?</h3>
-                    <p class="example-calc" id="ex-desc">
-                        Aby podgrzać 180 litrów wody (standardowy bojler) od 10°C (woda z sieci) do 55°C (ciepła woda użytkowa), potrzeba <strong>~9.4 kWh</strong> energii. Zobacz, ile to kosztuje:
-                    </p>
-                    <div class="example-costs">
-                        <div class="example-cost-item">
-                            <span class="cost-source" id="ex-source-elec">⚡ Prąd z sieci (1,10 zł/kWh):</span>
-                            <span class="cost-value electric-cost" id="ex-cost-elec">~10,34 zł</span>
-                        </div>
-                        <div class="example-cost-item">
-                            <span class="cost-source">☀️ Słoneczny Bojler:</span>
-                            <span class="cost-value solar-cost">0,00 zł</span>
-                        </div>
-                    </div>
-
-                    <!-- Nowe statystyki: Czas i Wydajność -->
-                    <div class="example-stats-grid">
-                        <div class="estat-item">
-                            <div class="estat-icon">⏱️</div>
-                            <div>
-                                <div class="estat-label" id="ex-time-label">Czas nagrzewania (grzałka 2.0 kW)</div>
-                                <div class="estat-value" id="ex-time">-- h -- min</div>
-                            </div>
-                        </div>
-                        <div class="estat-item">
-                            <div class="estat-icon">☀️</div>
-                            <div>
-                                <div class="estat-label">Wymagane panele</div>
-                                <div class="estat-value" id="ex-panels">-- szt.</div>
-                            </div>
-                        </div>
-                        <div class="estat-item">
-                            <div class="estat-icon">🚿</div>
-                            <div>
-                                <div class="estat-label">Wystarczy na ok.</div>
-                                <div class="estat-value" id="ex-showers">-- osób</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Miejsce na komunikat o mocy grzałki -->
-                    <div id="ex-power-note" class="power-note" style="display:none;"></div>
-
-                    <p class="example-usage-note" id="ex-usage-note">
-                        Dla wybranych 4 osób potrzeba ok. 200L wody. Ten bojler trzeba nagrzać 1.1x dziennie.
-                    </p>
-                    
-                    <div class="stratification-wrapper">
-                        <div class="stratification-visual">
-                            <!-- Dodano tooltip zachęcający do najechania -->
-                            <svg viewBox="0 0 140 160" class="strat-svg" data-tooltip="Symulacja nagrzewania">
-                                <defs>
-                                    <linearGradient id="stratGrad" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stop-color="#ef4444"/>
-                                        <stop offset="45%" stop-color="#f97316"/>
-                                        <stop offset="100%" stop-color="#f59e0b"/>
-                                    </linearGradient>
-                                </defs>
-                                <!-- Tło (Zimna woda - zawsze widoczna pod spodem) -->
-                                <rect x="45" y="10" width="50" height="140" rx="10" fill="#3b82f6" opacity="0.3"/>
-                                <!-- Ciepła woda (Animowana warstwa) -->
-                                <rect class="hot-water" x="45" y="10" width="50" height="140" rx="10" fill="url(#stratGrad)"/>
-                                <!-- Obrys bojlera (na wierzchu) -->
-                                <rect x="45" y="10" width="50" height="140" rx="10" fill="none" stroke="#4b5563" stroke-width="2"/>
-                                
-                                <path d="M50 150 L50 158 M90 150 L90 158" stroke="#4b5563" stroke-width="2"/>
-                                <line x1="46" y1="55" x2="94" y2="55" stroke="rgba(255,255,255,0.5)" stroke-dasharray="3 2"/>
-                                <line x1="46" y1="105" x2="94" y2="105" stroke="rgba(255,255,255,0.5)" stroke-dasharray="3 2"/>
-                                    <text id="boiler-temp" x="102" y="35" font-family="sans-serif" font-size="11" fill="#ef4444" font-weight="bold">10°C</text>
-                                <text x="102" y="140" font-family="sans-serif" font-size="11" fill="#3b82f6" font-weight="bold">10°C</text>
-                                <text x="38" y="80" font-family="sans-serif" font-size="10" fill="rgba(255,255,255,0.9)" text-anchor="end" style="writing-mode: vertical-rl; text-orientation: mixed;">Warstwy</text>
-                            </svg>
-                        </div>
-                        <p class="example-stratification">
-                            <strong>Ważna uwaga o warstwach (stratyfikacji):</strong> W pionowym bojlerze woda naturalnie układa się warstwami — najcieplejsza gromadzi się na górze. Dzięki temu masz dostęp do gorącej wody, nawet gdy słońce ogrzało tylko górną część zbiornika. Pełne "naładowanie" całego bojlera nie jest konieczne do komfortowego użytkowania.
-                        </p>
-                    </div>
-                </div>
-            </div>
-
         </div>
     </section>
 
@@ -757,6 +793,7 @@
     <footer>
         <div id="global-trusted-logos" style="margin-bottom: 20px;"></div>
         <p>© 2026 SłonecznyBojler — Montaż systemów PV do podgrzewania wody | Łomża i okolice (do 40 km) <span style="color:var(--sun); font-size: 0.9em;">v1.0</span></p>
+        <p style="margin-top: 8px;"><a href="blog.html" style="color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.85rem; border-bottom: 1px dotted rgba(255,255,255,0.3);">📖 Dziennik Rozwoju / Blog</a></p>
         <p style="margin-top: 10px; font-size: 0.8em; color:var(--sun);">Realizacja strony przez: <a href="https://wizytowka-online.pages.dev/" target="_blank" style="color: inherit; text-decoration: none;">Enterprise</a></p>
         <button id="install-btn" class="btn-install" style="display: none;">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>

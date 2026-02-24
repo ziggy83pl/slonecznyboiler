@@ -2,7 +2,7 @@
 // ── 1. Definicja inputs (sprawdź czy ID zgadzają się z HTML!) ──
 const inputs = {
     volume:  { el: document.getElementById('range-volume'),  out: document.getElementById('val-volume'),  unit: ' L' },
-    heater:  { el: document.getElementById('range-heater'),  out: document.getElementById('val-heater'),  unit: ' kW' },
+    // heater: USUNIĘTE - teraz obsługiwane dynamicznie przez tablicę heatersState
     persons: { el: document.getElementById('range-persons'), out: document.getElementById('val-persons'), unit: '' },
     price:   { el: document.getElementById('range-price'),   out: document.getElementById('val-price'),   unit: ' zł' },
     sunny:   { el: document.getElementById('range-sunny'),   out: document.getElementById('val-sunny'),   unit: '' },
@@ -15,7 +15,6 @@ const inputs = {
 // (jeśli któryś zwróci null w konsoli — masz błąd ID w HTML)
 console.log('Kalkulator — elementy:', {
     'range-volume':  document.getElementById('range-volume'),
-    'range-heater':  document.getElementById('range-heater'),
     'range-persons': document.getElementById('range-persons'),
     'range-price':   document.getElementById('range-price'),
     'range-tilt':    document.getElementById('range-tilt'),
@@ -31,6 +30,9 @@ console.log('Kalkulator — elementy:', {
 // ── State for animations & Helpers ────────────────
 let animationState = {
     previousExCost: 0,
+    currentMode: 'boiler', // 'boiler' lub 'buffer'
+    heaters: [2.0],
+    boilerOrientation: 'vertical' // 'vertical' or 'horizontal'
 };
 
 /**
@@ -70,11 +72,83 @@ function rotatePoint(px, py, ox, oy, cos_t, sin_t) {
     return { x: ox + x_rotated, y: oy + y_rotated };
 }
 
+// ── HEATER MANAGEMENT ───────────────────────────────
+function renderHeaters() {
+    const container = document.getElementById('heaters-list');
+    if (!container) return;
+    container.innerHTML = '';
+
+    animationState.heaters.forEach((val, index) => {
+        const row = document.createElement('div');
+        row.className = 'heater-row';
+        
+        // Input range
+        const input = document.createElement('input');
+        input.type = 'range';
+        input.min = '1.0';
+        input.max = animationState.currentMode === 'buffer' ? '9.0' : '4.0'; // Większa moc dla bufora
+        input.step = '0.1';
+        input.value = val;
+        
+        // Display value
+        const display = document.createElement('span');
+        display.className = 'heater-val-display';
+        display.textContent = val.toFixed(1) + ' kW';
+
+        // Event listener
+        input.addEventListener('input', (e) => {
+            const newVal = parseFloat(e.target.value);
+            animationState.heaters[index] = newVal;
+            display.textContent = newVal.toFixed(1) + ' kW';
+            calcUpdate();
+        });
+
+        row.appendChild(input);
+        row.appendChild(display);
+
+        // Remove button (only if more than 1 heater)
+        if (animationState.heaters.length > 1) {
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'btn-remove-heater';
+            removeBtn.innerHTML = '&times;';
+            removeBtn.title = 'Usuń grzałkę';
+            removeBtn.onclick = () => {
+                animationState.heaters.splice(index, 1);
+                renderHeaters();
+                calcUpdate();
+            };
+            row.appendChild(removeBtn);
+        }
+
+        container.appendChild(row);
+    });
+
+    // Update total label
+    const totalPower = animationState.heaters.reduce((a, b) => a + b, 0);
+    const totalLabel = document.getElementById('val-heater-total');
+    if (totalLabel) totalLabel.textContent = totalPower.toFixed(1) + ' kW';
+}
+
+document.getElementById('btn-add-heater')?.addEventListener('click', () => {
+    // Dodaj nową grzałkę (domyślnie 2kW lub 3kW dla bufora)
+    const defaultPower = animationState.currentMode === 'buffer' ? 3.0 : 2.0;
+    animationState.heaters.push(defaultPower);
+    renderHeaters();
+    calcUpdate();
+});
+
 // ── 3. Funkcja obliczeniowa ─────────────────────────
 function calcUpdate() {
     // Bezpieczne odczytanie — jeśli element nie istnieje, użyj domyślnej wartości
     const vol     = inputs.volume.el  ? +inputs.volume.el.value  : 180;
-    const heaterPower = inputs.heater.el ? +inputs.heater.el.value : 2.0;
+    
+    // Sumuj moc wszystkich grzałek
+    const heaterPower = animationState.heaters.reduce((sum, val) => sum + val, 0);
+    
+    // Aktualizuj etykietę sumy
+    const totalLabel = document.getElementById('val-heater-total');
+    if (totalLabel) totalLabel.textContent = heaterPower.toFixed(1) + ' kW';
+
     const persons = inputs.persons.el ? +inputs.persons.el.value : 4;
     const price   = inputs.price.el   ? +inputs.price.el.value   : 1.10;
     const sunny   = inputs.sunny.el   ? +inputs.sunny.el.value   : 180;
@@ -177,7 +251,7 @@ function calcUpdate() {
     if (exTitle) exTitle.textContent = `Przykład: Ile kosztuje jednorazowe podgrzanie bojlera ${vol}L?`;
 
     const exDesc = document.getElementById('ex-desc');
-    if (exDesc) exDesc.innerHTML = `Aby podgrzać ${vol} litrów wody (standardowy bojler) od 10°C (woda z sieci) do 55°C (ciepła woda użytkowa), potrzeba <strong>~${exEnergy.toFixed(1)} kWh</strong> energii. Zobacz, ile to kosztuje:`;
+    if (exDesc) exDesc.innerHTML = `Aby podgrzać ${vol} litrów wody od 10°C do 55°C, potrzeba <strong>~${exEnergy.toFixed(1)} kWh</strong> energii. Zobacz, ile to kosztuje:`;
 
     const exSourceElec = document.getElementById('ex-source-elec');
     if (exSourceElec) exSourceElec.textContent = `⚡ Prąd z sieci (${price.toFixed(2)} zł/kWh):`;
@@ -195,18 +269,28 @@ function calcUpdate() {
     const recEl = document.getElementById('rec-heater');
     if (recEl) recEl.textContent = `${recPower} kW`;
 
-    // Rekomendowana ilość paneli (dla wybranej grzałki)
-    // Zakładamy panel 450W. Moc paneli powinna pokrywać moc grzałki (lub lekko przewyższać).
-    const panelsCountCalc = Math.ceil((heaterPower * 1000) / panelPower);
+    // Rekomendowana ilość paneli (dla ZALECANEJ mocy grzałki - zależnej od pojemności)
+    // Używamy parseFloat(recPower), aby rekomendacja paneli była spójna z rekomendacją grzałki powyżej
+    const panelsCountCalc = Math.ceil((parseFloat(recPower) * 1000) / panelPower);
     const recPanelsCalcEl = document.getElementById('rec-panels-calc');
     if (recPanelsCalcEl) recPanelsCalcEl.textContent = `${panelsCountCalc} szt. (${panelPower}W)`;
 
+    // Walidacja mocy grzałki (Ostrzeżenie w kalkulatorze)
+    const heaterWarningEl = document.getElementById('heater-warning');
+    if (heaterWarningEl) {
+        if (heaterPower < parseFloat(recPower)) {
+            heaterWarningEl.style.display = 'block';
+            heaterWarningEl.innerHTML = `⚠️ <strong>Uwaga:</strong> Wybrana moc (${heaterPower.toFixed(1)} kW) jest mniejsza niż zalecana (${recPower} kW). Czas nagrzewania może być zbyt długi.`;
+        } else {
+            heaterWarningEl.style.display = 'none';
+        }
+    }
+
     // Aktualizacja etykiety czasu (dynamiczna moc)
     const timeLabel = document.getElementById('ex-time-label');
-    if (timeLabel) timeLabel.textContent = `Czas nagrzewania (grzałka ${heaterPower.toFixed(1)} kW)`;
+    if (timeLabel) timeLabel.textContent = `Czas nagrzewania (razem ${heaterPower.toFixed(1)} kW)`;
     
     // 1. Czas nagrzewania (dla wybranej mocy grzałki)
-    // Czas = Energia (kWh) / Moc (kW)
     const timeHoursTotal = exEnergy / heaterPower;
     const timeH = Math.floor(timeHoursTotal);
     const timeM = Math.round((timeHoursTotal - timeH) * 60);
@@ -214,8 +298,7 @@ function calcUpdate() {
     const exTime = document.getElementById('ex-time');
     if (exTime) exTime.textContent = `${timeH}h ${timeM}min`;
 
-    // 1b. Sugerowana ilość paneli (Standard 500W - 600W Bifacial)
-    // Zakładamy bezpiecznie panel 500W jako dzielnik
+    // 1b. Sugerowana ilość paneli
     const panelsNeeded = Math.ceil((heaterPower * 1000) / panelPower);
     const exPanels = document.getElementById('ex-panels');
     if (exPanels) exPanels.textContent = `${panelsNeeded} szt. (${panelPower}W)`;
@@ -226,21 +309,22 @@ function calcUpdate() {
         if (heaterPower > parseFloat(recPower)) {
             powerNote.style.display = 'block';
             powerNote.className = 'power-note success';
-            powerNote.innerHTML = `✅ <strong>Duża moc grzałki!</strong> Woda nagrzeje się bardzo szybko. Pamiętaj, że falownik musi obsłużyć tę moc (wymaga min. ${panelsNeeded} paneli ${panelPower}W).`;
+            powerNote.innerHTML = `✅ <strong>Duża moc całkowita!</strong> Woda nagrzeje się bardzo szybko. Pamiętaj, że falownik musi obsłużyć tę moc (wymaga min. ${panelsNeeded} paneli ${panelPower}W).`;
         } else {
             powerNote.style.display = 'none';
         }
     }
 
-    // 2. Ilość pryszniców (zakładamy ok. 40L ciepłej wody na szybki prysznic)
-    const showersCount = Math.floor(vol / 40);
+    // 2. Ilość pryszniców (uwzględniamy orientację bojlera)
+    const isVertical = animationState.boilerOrientation === 'vertical';
+    const usableVolumeFactor = isVertical ? 0.90 : 0.65; // 90% dla pionowego, 65% dla poziomego
+    const usableVolume = vol * usableVolumeFactor;
+    const showersCount = Math.floor(usableVolume / 40);
     const exShowers = document.getElementById('ex-showers');
     if (exShowers) exShowers.textContent = `ok. ${showersCount} osób`;
 
     // 3. Kontekst użycia (Osoby vs Pojemność)
-    // Zapotrzebowanie dzienne: osoby * 50L
     const dailyNeed = persons * 50;
-    // Ile razy trzeba nagrzać bojler?
     const cyclesVal = dailyNeed / vol;
     const cycles    = cyclesVal.toFixed(1);
     
@@ -248,7 +332,6 @@ function calcUpdate() {
     if (exUsageNote) {
         exUsageNote.className = 'example-usage-note'; // Reset klasy
         let noteHTML = '';
-
         if (cyclesVal > 2.0) {
             exUsageNote.classList.add('warning');
             noteHTML = `⚠️ <strong>Uwaga: Bojler może być za mały!</strong><br>Dla ${persons} osób potrzeba ok. ${dailyNeed}L wody. Przy tej pojemności trzeba ją grzać aż <strong>${cycles} razy</strong> na dobę.`;
@@ -261,6 +344,65 @@ function calcUpdate() {
             }
         }
         exUsageNote.innerHTML = noteHTML;
+    }
+
+    // 4. Informacje o stratyfikacji i orientacji bojlera
+    const stratVisual = document.querySelector('.stratification-visual');
+    if (stratVisual) {
+        if (isVertical) stratVisual.classList.remove('horizontal');
+        else stratVisual.classList.add('horizontal');
+    }
+
+    const stratInfoEl = document.getElementById('stratification-info');
+    if (stratInfoEl) {
+        if (isVertical) {
+            stratInfoEl.innerHTML = `<strong>Ważna uwaga o warstwach (stratyfikacji):</strong> W pionowym bojlerze woda naturalnie układa się warstwami — najcieplejsza gromadzi się na górze. Dzięki temu masz dostęp do gorącej wody, nawet gdy słońce ogrzało tylko górną część zbiornika. Pełne "naładowanie" całego bojlera nie jest konieczne do komfortowego użytkowania.`;
+            stratInfoEl.style.color = '';
+            stratInfoEl.style.background = '';
+            stratInfoEl.style.padding = '';
+            stratInfoEl.style.borderRadius = '';
+            stratInfoEl.style.border = '';
+        } else { // Horizontal
+            if (vol <= 60) {
+                stratInfoEl.innerHTML = `⚠️ <strong>KRYTYCZNA UWAGA:</strong> Poziomy bojler o tak małej pojemności (<strong>${vol}L</strong>) jest <strong>bardzo nieefektywny</strong>. Mieszanie się wody sprawi, że ilość dostępnej gorącej wody będzie znikoma (realnie ${Math.round(usableVolume)}L). Zdecydowanie zalecany jest bojler pionowy.`;
+                stratInfoEl.style.color = '#b91c1c';
+                stratInfoEl.style.background = 'rgba(239, 68, 68, 0.1)';
+                stratInfoEl.style.padding = '12px';
+                stratInfoEl.style.borderRadius = '8px';
+                stratInfoEl.style.border = '1px solid rgba(239, 68, 68, 0.2)';
+            } else {
+                stratInfoEl.innerHTML = `<strong>Uwaga dla bojlera poziomego:</strong> W takim bojlerze zjawisko stratyfikacji (układania warstw) jest znacznie słabsze. Ciepła woda szybciej miesza się z zimną przy poborze, co <strong>zmniejsza ilość dostępnej "użytkowej" gorącej wody</strong>. Efektywna pojemność jest niższa niż w bojlerze pionowym o tym samym litrażu.`;
+                stratInfoEl.style.color = '';
+                stratInfoEl.style.background = '';
+                stratInfoEl.style.padding = '';
+                stratInfoEl.style.borderRadius = '';
+                stratInfoEl.style.border = '';
+            }
+        }
+    }
+
+    // -- Update Recommended Set Box --
+    const recTotalPowerW = panelsCountCalc * panelPower;
+    const recTotalPowerKWp = (recTotalPowerW / 1000).toFixed(2);
+
+    const recSetPanels = document.getElementById('rec-set-panels');
+    if (recSetPanels) {
+        recSetPanels.innerHTML = `<strong>Panele PV:</strong> ${panelsCountCalc} szt. (${panelPower}W) - łącznie ${recTotalPowerKWp} kWp`;
+    }
+
+    const recSetInverter = document.getElementById('rec-set-inverter');
+    if (recSetInverter) {
+        recSetInverter.innerHTML = `<strong>Falownik Off-Grid:</strong> 1 szt. (moc min. ${Math.ceil(recTotalPowerW / 1000)} kW)`;
+    }
+
+    const recSetWiring = document.getElementById('rec-set-wiring');
+    if (recSetWiring) {
+        recSetWiring.innerHTML = `<strong>Okablowanie i złącza:</strong> Kompletny zestaw solarny MC4`;
+    }
+
+    const recSetMount = document.getElementById('rec-set-mount');
+    if (recSetMount) {
+        recSetMount.innerHTML = `<strong>Montaż:</strong> Profesjonalna instalacja na dachu lub gruncie`;
     }
 }
 
@@ -275,7 +417,6 @@ Object.entries(inputs).forEach(([key, obj]) => {
         if (obj.out) {
             obj.out.textContent = (key === 'price')
                 ? val.toFixed(2) + obj.unit
-                : (key === 'heater') ? val.toFixed(1) + obj.unit
                 : val + obj.unit;
         }
         calcUpdate();
@@ -286,13 +427,99 @@ Object.entries(inputs).forEach(([key, obj]) => {
         const val = +obj.el.value;
         obj.out.textContent = (key === 'price')
             ? val.toFixed(2) + obj.unit
-            : (key === 'heater') ? val.toFixed(1) + obj.unit
             : (key === 'tilt')   ? val + obj.unit
             : val + obj.unit;
     }
 });
 
+// Animacja chlupotania wody przy zmianie pojemności
+const volumeSlider = document.getElementById('range-volume');
+if (volumeSlider) {
+    volumeSlider.addEventListener('input', () => {
+        const waterEl = document.querySelector('.hot-water');
+        if (waterEl) {
+            waterEl.classList.remove('sloshing');
+            void waterEl.offsetWidth; // Trigger reflow (restart animacji)
+            waterEl.classList.add('sloshing');
+            
+            // Usuń klasę po zakończeniu animacji (0.6s w CSS)
+            setTimeout(() => {
+                waterEl.classList.remove('sloshing');
+            }, 600);
+        }
+    });
+}
+
+// ── MODE SWITCH LOGIC ───────────────────────────────
+document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        // UI Update
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const mode = btn.getAttribute('data-mode');
+        animationState.currentMode = mode;
+
+        const volSlider = inputs.volume.el;
+        
+        if (mode === 'buffer') {
+            // Ustawienia dla Bufora
+            volSlider.max = 2000;
+            volSlider.step = 50;
+            volSlider.value = 1000; // Domyślnie 1000L
+            
+            // Domyślne grzałki dla bufora (zgodnie z prośbą: 3kW + 4kW)
+            animationState.heaters = [3.0, 4.0];
+            
+            // Zaktualizuj etykietę
+            document.querySelector('label[for="range-volume"]').innerHTML = 'Pojemność bufora <span id="val-volume">1000 L</span>';
+            inputs.volume.out = document.getElementById('val-volume'); // Re-bind output
+
+        } else {
+            // Ustawienia dla Bojlera
+            volSlider.max = 300;
+            volSlider.step = 10;
+            volSlider.value = 180;
+            
+            // Domyślna grzałka dla bojlera
+            animationState.heaters = [2.0];
+
+            document.querySelector('label[for="range-volume"]').innerHTML = 'Pojemność bojlera <span id="val-volume">180 L</span>';
+            inputs.volume.out = document.getElementById('val-volume');
+        }
+
+        renderHeaters();
+        volSlider.dispatchEvent(new Event('input')); // Trigger update
+    });
+});
+
+// Boiler Orientation Switch Logic
+document.querySelectorAll('.orientation-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.orientation-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        animationState.boilerOrientation = btn.getAttribute('data-orientation');
+        calcUpdate();
+    });
+});
+
+// Obsługa opcji "Bojler z wężownicą"
+const coilCheck = document.getElementById('check-coil');
+const coilInfo = document.getElementById('coil-info');
+
+if (coilCheck && coilInfo) {
+    coilCheck.addEventListener('change', () => {
+        if (coilCheck.checked) {
+            coilInfo.style.display = 'block';
+            coilInfo.innerHTML = `<strong>💡 Idealny układ hybrydowy:</strong><br>To świetna wiadomość! Możesz zintegrować system PV z obecnym piecem. Grzałka zasilana słońcem będzie grzać wodę <strong>od wiosny do jesieni (za darmo)</strong>, pozwalając Ci całkowicie wyłączyć piec. Zimą, gdy słońca jest mniej, wężownica z kotła C.O. przejmie podgrzewanie. To najbardziej ekonomiczne rozwiązanie całoroczne.`;
+        } else {
+            coilInfo.style.display = 'none';
+        }
+    });
+}
+
 // ── 5. ★ KLUCZOWE: wywołaj przy starcie ─────────────
+renderHeaters(); // Inicjalizacja grzałek
 calcUpdate();
 
 // ── Przycisk automatycznego doboru ───────────────────
@@ -303,11 +530,12 @@ if (autoSetBtn) {
         const optimalValues = {
             persons: 4,
             volume: 200,
-            heater: 3.0,
             tilt: 35,
             orient: "1.0",
             panelPower: 450,
         };
+        
+        // TODO: Reset mode to boiler if needed, or handle buffer auto-set
 
         // Ustaw wartości i wywołaj zdarzenie 'input' dla każdego suwaka/selecta
         Object.entries(optimalValues).forEach(([key, value]) => {
@@ -316,6 +544,11 @@ if (autoSetBtn) {
                 inputs[key].el.dispatchEvent(new Event('input', { bubbles: true }));
             }
         });
+        
+        // Reset heaters for auto-set
+        animationState.heaters = [3.0];
+        renderHeaters();
+        calcUpdate();
     });
 }
 
@@ -771,9 +1004,15 @@ function drawSolarCurve(hoverX = null) {
         // Kółko
         const sinNow = Math.sin(Math.PI * nowRatio) * cloudFactor;
         const nowY   = pad.t + plotH * (1 - sinNow);
-        ctx.beginPath(); ctx.arc(nowX, nowY, 7, 0, Math.PI * 2);
-        ctx.fillStyle = '#F59E0B'; ctx.shadowColor = 'rgba(245,158,11,0.9)'; ctx.shadowBlur = 14; ctx.fill(); ctx.shadowBlur = 0;
-        ctx.beginPath(); ctx.arc(nowX, nowY, 3.5, 0, Math.PI * 2); ctx.fillStyle = '#1C1917'; ctx.fill();
+        
+        ctx.save();
+        ctx.font = '20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(245,158,11,0.9)'; ctx.shadowBlur = 14;
+        ctx.fillText('☀️', nowX, nowY);
+        ctx.restore();
+
         // Etykieta
         ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '600 10px sans-serif'; ctx.textAlign = 'center';
         const labelX = Math.min(Math.max(nowX, 28), W - 28);
@@ -1184,17 +1423,28 @@ const boilerObserver = new IntersectionObserver((entries) => {
                 const step = (timestamp) => {
                     if (!start) start = timestamp;
                     const progress = Math.min((timestamp - start) / duration, 1);
-                    // Easing ease-out (cubic) - dopasowany do animacji CSS
                     const ease = 1 - Math.pow(1 - progress, 3);
                     const val = Math.floor(10 + (55 - 10) * ease);
                     tempEl.textContent = val + '°C';
                     
+                    // Efekt pary wodnej
+                    const visualEl = entry.target; // .stratification-visual
+                    if (visualEl) {
+                        if (val > 50) {
+                            visualEl.classList.add('steaming');
+                        } else {
+                            visualEl.classList.remove('steaming');
+                        }
+                    }
+
                     if (progress < 1) boilerAnimFrame = requestAnimationFrame(step);
                 };
                 boilerAnimFrame = requestAnimationFrame(step);
             }
         } else {
             entry.target.classList.remove('animate-boiler');
+            // Usuń parę, gdy bojler znika z widoku
+            entry.target.classList.remove('steaming');
             if (boilerAnimFrame) cancelAnimationFrame(boilerAnimFrame);
             if (tempEl) tempEl.textContent = '10°C';
         }

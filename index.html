@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Słoneczny Bojler Łomża ☀️ Darmowa Ciepła Woda | Oszczędzaj na Prądzie</title>
     <meta name="description" content="Masz dość wysokich rachunków za prąd? ⚡ Zacznij grzać wodę słońcem za 0 zł! Prosty system off-grid bez formalności. Montaż w 1 dzień (Łomża + 40km). Sprawdź kalkulator oszczędności!">
-    <meta name="keywords" content="fotowoltaika bojler Łomża, system PV ciepła woda Łomża, podgrzewanie wody słońcem Zambrów, fotowoltaika off-grid Podlaskie, grzałka fotowoltaika Łomża, oszczędności na prądzie Łomża, instalacja PV bojler 40km Łomża">
+    <meta name="keywords" content="fotowoltaika bojler Łomża, taryfa G11, system PV ciepła woda Łomża, podgrzewanie wody słońcem Zambrów, fotowoltaika off-grid Podlaskie, grzałka fotowoltaika Łomża, oszczędności na prądzie Łomża, instalacja PV bojler 40km Łomża">
     <meta name="robots" content="index, follow">
     <meta name="author" content="SłonecznyBojler – montaż Łomża i okolice">
     <!-- Open Graph -->
@@ -58,15 +58,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
-    <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-0373984HNB"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-0373984HNB');
-</script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☀️</text></svg>">
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-0373984HNB');
+    </script>
 </head>
 <body>
 
@@ -315,18 +313,45 @@
                     <button id="btn-auto-set" class="btn-auto" type="button">
                         <i class="fa-solid fa-wand-magic-sparkles"></i> Dobierz zestaw dla 4 osób
                     </button>
+                    
+                    <!-- Przełącznik Trybu: Bojler vs Bufor -->
+                    <div class="mode-switch-container">
+                        <button type="button" class="mode-btn active" data-mode="boiler">🚿 Bojler CWU</button>
+                        <button type="button" class="mode-btn" data-mode="buffer">🔥 Bufor Ciepła</button>
+                    </div>
+                    
+                    <!-- Nowa opcja: Wężownica -->
+                    <div class="field" style="margin-bottom: 12px;">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="check-coil">
+                            <span>Posiadam bojler z wężownicą (C.O.)</span>
+                        </label>
+                    </div>
+                    <div id="coil-info" class="coil-info-box" style="display:none;"></div>
+
                     <div class="field">
                         <label>Pojemność bojlera <span id="val-volume">180 L</span></label>
                         <input type="range" id="range-volume" min="50" max="300" value="180" step="10">
                     </div>
+                    
+                    <!-- Sekcja Grzałek (Dynamiczna) -->
                     <div class="field">
-                        <label>Moc grzałki <span id="val-heater">2.0 kW</span></label>
-                        <input type="range" id="range-heater" min="1.0" max="4.0" value="2.0" step="0.1">
+                        <label>
+                            Łączna moc grzałek <span id="val-heater-total">2.0 kW</span>
+                        </label>
+                        <div id="heaters-list">
+                            <!-- Tu JavaScript wstawi suwaki grzałek -->
+                        </div>
+                        <button type="button" id="btn-add-heater" class="btn-add-heater">+ Dodaj kolejną grzałkę</button>
+                        
                         <div style="font-size: 0.75rem; color: var(--ink-muted); margin-top: 4px;">
                             Zalecana moc: <strong id="rec-heater" style="color: var(--sun)">3.0 kW</strong> (dla szybszego nagrzewania)
                         </div>
                         <div style="font-size: 0.75rem; color: var(--ink-muted); margin-top: 2px;">
                             Zalecana ilość paneli: <strong id="rec-panels-calc" style="color: var(--sun)">--</strong>
+                        </div>
+                        <div id="heater-warning" style="font-size: 0.75rem; color: #ef4444; margin-top: 6px; display: none; line-height: 1.4; background: rgba(239,68,68,0.1); padding: 8px; border-radius: 6px; border: 1px solid rgba(239,68,68,0.2);">
+                            <!-- Ostrzeżenie o zbyt małej mocy -->
                         </div>
                     </div>
                     <div class="field">
@@ -378,6 +403,7 @@
                     <div class="field">
                         <label>Moc pojedynczego panelu</label>
                         <select id="select-panel-power" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:#f9fafb; color:var(--ink-soft); font-family:inherit; font-size:0.9rem; cursor:pointer; outline:none;">
+                            <option value="400">400 W</option>
                             <option value="450" selected>450 W (Standard)</option>
                             <option value="500">500 W</option>
                             <option value="550">550 W</option>
@@ -412,6 +438,17 @@
                         <div class="result-label">Szacowany zwrot z inwestycji</div>
                         <div class="result-value" id="result-payback">—</div>
                         <div class="result-sub">Zestaw to koszt ok. 2500–4800 zł z montażem</div>
+                    </div>
+                    <!-- Rekomendowany zestaw -->
+                    <div class="result-card" id="recommended-set">
+                        <div class="result-label">Rekomendowany zestaw startowy</div>
+                        <ul class="recommended-list">
+                            <li id="rec-set-panels"></li>
+                            <li id="rec-set-inverter"></li>
+                            <li id="rec-set-wiring"></li>
+                            <li id="rec-set-mount"></li>
+                        </ul>
+                        <p class="recommended-note">Zestaw jest dobierany na podstawie <strong>zalecanej mocy grzałki</strong> dla wybranej pojemności bojlera, aby zapewnić optymalny czas nagrzewania.</p>
                     </div>
                 </div>
 
@@ -517,7 +554,6 @@
                             
                             <div class="stratification-wrapper">
                                 <div class="stratification-visual">
-                                    <!-- Dodano tooltip zachęcający do najechania -->
                                     <svg viewBox="0 0 140 160" class="strat-svg" data-tooltip="Symulacja nagrzewania">
                                         <defs>
                                             <linearGradient id="stratGrad" x1="0" y1="0" x2="0" y2="1">
@@ -526,24 +562,32 @@
                                                 <stop offset="100%" stop-color="#f59e0b"/>
                                             </linearGradient>
                                         </defs>
-                                        <!-- Tło (Zimna woda - zawsze widoczna pod spodem) -->
                                         <rect x="45" y="10" width="50" height="140" rx="10" fill="#3b82f6" opacity="0.3"/>
-                                        <!-- Ciepła woda (Animowana warstwa) -->
                                         <rect class="hot-water" x="45" y="10" width="50" height="140" rx="10" fill="url(#stratGrad)"/>
-                                        <!-- Obrys bojlera (na wierzchu) -->
                                         <rect x="45" y="10" width="50" height="140" rx="10" fill="none" stroke="#4b5563" stroke-width="2"/>
-                                        
-                                        <path d="M50 150 L50 158 M90 150 L90 158" stroke="#4b5563" stroke-width="2"/>
+                                        <path id="boiler-legs" d="M50 150 L50 158 M90 150 L90 158" stroke="#4b5563" stroke-width="2"/>
                                         <line x1="46" y1="55" x2="94" y2="55" stroke="rgba(255,255,255,0.5)" stroke-dasharray="3 2"/>
                                         <line x1="46" y1="105" x2="94" y2="105" stroke="rgba(255,255,255,0.5)" stroke-dasharray="3 2"/>
-                                            <text id="boiler-temp" x="102" y="35" font-family="sans-serif" font-size="11" fill="#ef4444" font-weight="bold">10°C</text>
-                                        <text x="102" y="140" font-family="sans-serif" font-size="11" fill="#3b82f6" font-weight="bold">10°C</text>
+                                        <text id="boiler-temp" class="boiler-text" x="102" y="35" font-family="sans-serif" font-size="11" fill="#ef4444" font-weight="bold">10°C</text>
+                                        <text class="boiler-text" x="102" y="140" font-family="sans-serif" font-size="11" fill="#3b82f6" font-weight="bold">10°C</text>
                                         <text x="38" y="80" font-family="sans-serif" font-size="10" fill="rgba(255,255,255,0.9)" text-anchor="end" style="writing-mode: vertical-rl; text-orientation: mixed;">Warstwy</text>
+                                        <!-- Efekt pary wodnej -->
+                                        <g id="steam-group" style="opacity: 0; transition: opacity 0.5s ease;">
+                                            <circle cx="60" cy="10" r="2" fill="rgba(255,255,255,0.7)"/>
+                                            <circle cx="70" cy="10" r="3" fill="rgba(255,255,255,0.7)"/>
+                                            <circle cx="80" cy="10" r="2.5" fill="rgba(255,255,255,0.7)"/>
+                                            <circle cx="65" cy="15" r="2" fill="rgba(255,255,255,0.7)"/>
+                                            <circle cx="75" cy="20" r="3" fill="rgba(255,255,255,0.7)"/>
+                                        </g>
                                     </svg>
                                 </div>
-                                <p class="example-stratification">
-                                    <strong>Ważna uwaga o warstwach (stratyfikacji):</strong> W pionowym bojlerze woda naturalnie układa się warstwami — najcieplejsza gromadzi się na górze. Dzięki temu masz dostęp do gorącej wody, nawet gdy słońce ogrzało tylko górną część zbiornika. Pełne "naładowanie" całego bojlera nie jest konieczne do komfortowego użytkowania.
-                                </p>
+                                <div>
+                                    <div class="orientation-switch-container">
+                                        <button type="button" class="orientation-btn active" data-orientation="vertical">Pionowy</button>
+                                        <button type="button" class="orientation-btn" data-orientation="horizontal">Poziomy</button>
+                                    </div>
+                                    <p id="stratification-info" class="example-stratification"></p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -795,7 +839,7 @@
 
     <footer>
         <div id="global-trusted-logos" style="margin-bottom: 20px;"></div>
-        <p>© 2026 SłonecznyBojler — Montaż systemów PV do podgrzewania wody | Łomża i okolice (do 40 km) <span style="color:var(--sun); font-size: 0.9em;">v1.0</span></p>
+        <p>© 2026 SłonecznyBojler — Montaż systemów PV do podgrzewania wody | Łomża i okolice (do 40 km) <span style="color:var(--sun); font-size: 0.9em;">v2.0</span></p>
         <p style="margin-top: 8px;"><a href="blog.html" style="color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.85rem; border-bottom: 1px dotted rgba(255,255,255,0.3);">📖 Dziennik Rozwoju / Blog</a></p>
         <p style="margin-top: 10px; font-size: 0.8em; color:var(--sun);">Realizacja strony przez: <a href="https://wizytowka-online.pages.dev/" target="_blank" style="color: inherit; text-decoration: none;">Enterprise</a></p>
         <button id="install-btn" class="btn-install" style="display: none;">

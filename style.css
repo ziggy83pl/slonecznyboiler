@@ -92,6 +92,7 @@ nav.nav-open .hamburger span:nth-child(3) { transform: translateY(-10.5px) rotat
     display: flex; align-items: center;
     position: relative; overflow: hidden;
     padding: 120px 24px 80px;
+    transition: background 1.5s ease;
 }
 .hero-rays {
     position: absolute; top: -20%; right: -10%;
@@ -107,6 +108,12 @@ nav.nav-open .hamburger span:nth-child(3) { transform: translateY(-10.5px) rotat
     background: radial-gradient(circle, rgba(245,158,11,0.1) 0%, transparent 60%);
     animation: pulse 4s ease-in-out 2s infinite;
 }
+/* Zmiana koloru poświaty w nocy na księżycowy (niebieskawy) */
+.hero.is-night .hero-rays,
+.hero.is-night .hero-rays-2 {
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 60%);
+}
+
 @keyframes pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.05); opacity: 0.7; }
@@ -229,6 +236,224 @@ nav.nav-open .hamburger span:nth-child(3) { transform: translateY(-10.5px) rotat
 }
 .savings-total-label { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 0.9rem; color: var(--ink); }
 .savings-total-val { font-family: 'Sora', sans-serif; font-weight: 800; font-size: 1.5rem; color: var(--ink); }
+
+/* ── BREEZY SUN ANIMATION ────────────────────────── */
+.breezy-sun-wrapper {
+    position: absolute;
+    top: -100px;
+    right: -100px;
+    width: 500px;
+    height: 500px;
+    z-index: 0;
+    pointer-events: none;
+    will-change: transform;
+}
+.breezy-sun-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    opacity: 0.8;
+    animation: sun-enter 1.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    overflow: visible;
+}
+.breezy-sun-rays-group {
+    position: absolute;
+    inset: 0;
+    animation: sun-spin 120s linear infinite;
+}
+.breezy-sun-ray {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 320px;
+    height: 320px;
+    background: rgba(251, 191, 36, 0.08);
+    border-radius: 40px;
+    transform: translate(-50%, -50%);
+    transition: background 1.5s ease;
+}
+.breezy-sun-ray:nth-child(2) { transform: translate(-50%, -50%) rotate(30deg); }
+.breezy-sun-ray:nth-child(3) { transform: translate(-50%, -50%) rotate(60deg); }
+.breezy-sun-core {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 140px;
+    height: 140px;
+    background: radial-gradient(circle at 30% 30%, #FEF3C7, #F59E0B);
+    border-radius: 50%;
+    box-shadow: 0 0 80px rgba(245, 158, 11, 0.5);
+    animation: sun-pulse 6s ease-in-out infinite alternate;
+}
+@keyframes sun-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes sun-pulse {
+    0% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 60px rgba(245, 158, 11, 0.5); }
+    100% { transform: translate(-50%, -50%) scale(1.08); box-shadow: 0 0 100px rgba(245, 158, 11, 0.7); }
+}
+@keyframes sun-enter { from { opacity: 0; transform: scale(0.5) rotate(-45deg); } to { opacity: 0.8; transform: scale(1) rotate(0deg); } }
+
+/* Night Mode for Sun/Moon */
+.breezy-sun-wrapper.is-night .breezy-sun-ray {
+    background: rgba(255, 255, 255, 0.03);
+    opacity: 0; /* Ukryj promienie w nocy, zostaw tylko poświatę */
+}
+.breezy-sun-wrapper.is-night .breezy-sun-core {
+    /* Domyślny styl księżyca (Pełnia) */
+    background: #f1f5f9;
+    box-shadow: 0 0 50px rgba(255, 255, 255, 0.2);
+    transition: all 1s ease;
+}
+
+/* ── MOON PHASES (Fazy Księżyca) ── */
+/* Kolor cienia (musi pasować do tła Hero w nocy: #0f172a) */
+
+/* 0: Nów (Ciemny dysk z delikatną poświatą) */
+.breezy-sun-wrapper[data-phase="0"] .breezy-sun-core {
+    background: transparent;
+    box-shadow: inset 0 0 20px rgba(255,255,255,0.05), 0 0 40px rgba(148, 163, 184, 0.25);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+/* 1: Sierp przybywający (Rogal D) */
+.breezy-sun-wrapper[data-phase="1"] .breezy-sun-core {
+    background: transparent;
+    box-shadow: inset -30px 0 0 0 #f1f5f9, 0 0 30px rgba(255,255,255,0.1);
+}
+/* 2: Pierwsza kwadra (Połowa D) */
+.breezy-sun-wrapper[data-phase="2"] .breezy-sun-core {
+    background: transparent;
+    box-shadow: inset -70px 0 0 0 #f1f5f9, 0 0 40px rgba(255,255,255,0.15);
+}
+/* 3: Garb przybywający (Prawie pełnia) */
+.breezy-sun-wrapper[data-phase="3"] .breezy-sun-core {
+    background: #f1f5f9;
+    box-shadow: inset 30px 0 0 0 rgba(15, 23, 42, 0.9), 0 0 50px rgba(255,255,255,0.2);
+}
+/* 4: Pełnia (Już zdefiniowana wyżej jako domyślna, ale dla pewności) */
+.breezy-sun-wrapper[data-phase="4"] .breezy-sun-core {
+    background: #f1f5f9;
+    box-shadow: 0 0 80px rgba(147, 197, 253, 0.6);
+}
+/* 5: Garb ubywający */
+.breezy-sun-wrapper[data-phase="5"] .breezy-sun-core {
+    background: #f1f5f9;
+    box-shadow: inset -30px 0 0 0 rgba(15, 23, 42, 0.9), 0 0 50px rgba(255,255,255,0.2);
+}
+/* 6: Ostatnia kwadra (Połowa C) */
+.breezy-sun-wrapper[data-phase="6"] .breezy-sun-core {
+    background: transparent;
+    box-shadow: inset 70px 0 0 0 #f1f5f9, 0 0 40px rgba(255,255,255,0.15);
+}
+/* 7: Sierp ubywający (Rogal C) */
+.breezy-sun-wrapper[data-phase="7"] .breezy-sun-core {
+    background: transparent;
+    box-shadow: inset 30px 0 0 0 #f1f5f9, 0 0 30px rgba(255,255,255,0.1);
+}
+
+/* ── NIGHT STARS ─────────────────────────────────── */
+.hero-stars {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 2s ease-in-out;
+}
+/* Pokaż gwiazdy w nocy */
+.hero.is-night .hero-stars { opacity: 1; }
+/* Przyciemnij tło Hero w nocy */
+.hero.is-night {
+    background: linear-gradient(to right, #0f172a, #1e293b);
+}
+
+/* Generowanie gwiazd za pomocą box-shadow (bardzo lekkie dla przeglądarki) */
+.stars-small, .stars-medium {
+    position: absolute;
+    top: 0; left: 0;
+    background: transparent;
+    border-radius: 50%;
+}
+
+.stars-small {
+    width: 1px; height: 1px;
+    animation: twinkle 4s infinite ease-in-out;
+    box-shadow: 
+        10vw 10vh #fff, 20vw 40vh #fff, 35vw 15vh #fff, 50vw 60vh #fff, 
+        60vw 20vh #fff, 75vw 40vh #fff, 85vw 10vh #fff, 95vw 80vh #fff,
+        5vw 85vh #fff, 15vw 55vh #fff, 25vw 90vh #fff, 40vw 75vh #fff,
+        55vw 35vh #fff, 70vw 85vh #fff, 80vw 55vh #fff, 90vw 25vh #fff,
+        30vw 5vh #fff, 45vw 30vh #fff, 65vw 5vh #fff, 12vw 65vh #fff;
+    opacity: 0.6;
+}
+
+.stars-medium {
+    width: 2px; height: 2px;
+    animation: twinkle 6s infinite ease-in-out 1s;
+    box-shadow: 
+        15vw 25vh #fff, 45vw 10vh #fff, 75vw 75vh #fff, 
+        25vw 80vh #fff, 85vw 30vh #fff, 60vw 50vh #fff,
+        5vw 45vh #fff, 95vw 15vh #fff, 35vw 60vh #fff;
+    opacity: 0.8;
+}
+
+@keyframes twinkle {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 0.9; transform: scale(1.2); }
+}
+
+/* ── SHOOTING STAR ───────────────────────────────── */
+#shooting-star {
+    position: absolute;
+    top: 0; right: 0;
+    width: 120px; height: 2px;
+    background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 100%);
+    transform: rotate(-45deg);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
+}
+#shooting-star.animate {
+    animation: shooting-star-anim 2s linear forwards;
+}
+@keyframes shooting-star-anim {
+    0% { transform: rotate(-45deg) translateX(0); opacity: 0; }
+    10% { opacity: 1; }
+    100% { transform: rotate(-45deg) translateX(-1000px); opacity: 0; }
+}
+
+/* ── FOG EFFECT ──────────────────────────────────── */
+.hero-fog {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 45vh; /* Mgła zajmuje dolne 45% sekcji */
+    background: linear-gradient(to top, rgba(255,255,255,0.08) 0%, transparent 100%);
+    background-image: 
+        linear-gradient(to top, rgba(255,255,255,0.08) 0%, transparent 100%),
+        linear-gradient(to right, transparent 0%, rgba(255,255,255,0.06) 50%, transparent 100%);
+    background-size: 100% 100%, 200% 100%;
+    background-position: center bottom, 0 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 2s ease;
+    filter: blur(20px);
+    transform: translateZ(0); /* Akceleracja GPU */
+    animation: fog-drift 40s linear infinite;
+}
+.hero.is-foggy .hero-fog { opacity: 1; }
+/* W nocy mgła jest nieco bardziej szara/niebieska */
+.hero.is-night .hero-fog { background: linear-gradient(to top, rgba(148, 163, 184, 0.12) 0%, transparent 100%); }
+.hero.is-night .hero-fog { 
+    background-image: 
+        linear-gradient(to top, rgba(148, 163, 184, 0.12) 0%, transparent 100%),
+        linear-gradient(to right, transparent 0%, rgba(148, 163, 184, 0.08) 50%, transparent 100%);
+}
+
+@keyframes fog-drift {
+    0% { background-position: center bottom, 0 0; }
+    100% { background-position: center bottom, 200% 0; }
+}
 
 /* ── SECTION WRAPPER ──────────────────────────────── */
 section { padding: 80px 24px; }
@@ -729,6 +954,10 @@ footer {
     .floating-call-btn { display: flex !important; }
     #back-to-top { bottom: 100px; } /* Przesuń strzałkę wyżej */
 }
+@media (max-width: 768px) {
+    .breezy-sun-wrapper { width: 350px; height: 350px; top: -80px; right: -80px; }
+    .breezy-sun-core { width: 100px; height: 100px; }
+}
 @media (max-width: 600px) {
     .form-row { grid-template-columns: 1fr; }
     .steps-grid { grid-template-columns: 1fr; }
@@ -831,6 +1060,20 @@ footer {
     margin-bottom: 24px;
     position: relative;
     overflow: hidden;
+    transition: background 1.5s ease, border-color 1.5s ease;
+}
+/* Night Mode for Solar Widget */
+.solar-widget.is-night {
+    background: linear-gradient(135deg, #020617 0%, #0f172a 60%, #020617 100%);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+}
+.solar-widget.is-night::before {
+    background: radial-gradient(ellipse at 50% -10%, rgba(59, 130, 246, 0.15) 0%, transparent 60%);
+}
+.solar-widget.is-night .sw-stat {
+    background: rgba(255,255,255,0.03);
+    border-color: rgba(255,255,255,0.05);
 }
 .solar-widget::before {
     content: '';
@@ -848,6 +1091,7 @@ footer {
     display: flex; align-items: center; gap: 8px;
 }
 .sw-title::before { content: '☀'; font-size: 1rem; }
+.solar-widget.is-night .sw-title::before { content: '🌙'; }
 .sw-refresh-btn {
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);

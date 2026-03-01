@@ -113,6 +113,25 @@
     <div class="hero">
         <div class="hero-rays"></div>
         <div class="hero-rays-2"></div>
+        <!-- Breezy Weather Sun Effect -->
+        <div class="breezy-sun-wrapper" id="sun-wrapper">
+            <div class="breezy-sun-container">
+                <div class="breezy-sun-rays-group">
+                    <div class="breezy-sun-ray"></div>
+                    <div class="breezy-sun-ray"></div>
+                    <div class="breezy-sun-ray"></div>
+                </div>
+                <div class="breezy-sun-core"></div>
+            </div>
+        </div>
+        <!-- Night Stars Effect -->
+        <div class="hero-stars">
+            <div class="stars-small"></div>
+            <div class="stars-medium"></div>
+            <div id="shooting-star"></div>
+        </div>
+        <!-- Fog Effect -->
+        <div class="hero-fog"></div>
         <div class="hero-content fade-in-section">
             <div>
                 <div class="hero-badge">☀ Montaż Łomża i okolice – do 40 km</div>
@@ -269,7 +288,7 @@
                     <!-- Nagłówek – tytuł + źródła danych -->
                     <div class="sw-header">
                         <div>
-                            <div class="sw-title">Nasłonecznienie dzisiaj – Łomża <span id="sw-current-temp" style="color:var(--sun); margin-left:6px;"></span></div>
+                            <div class="sw-title"><span id="sw-title-text">Nasłonecznienie dzisiaj</span> – Łomża <span id="sw-current-temp" style="color:var(--sun); margin-left:6px;"></span></div>
                             <div style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;" id="sw-badges">
                                 <span class="sw-season-badge" id="sw-season">⏳ Ładowanie...</span>
                             </div>

@@ -884,6 +884,8 @@ function drawSolarCurve(hoverX = null) {
     const W = canvas.width, H = canvas.height;
     ctx.clearRect(0, 0, W, H);
 
+    const isNightMode = document.querySelector('.solar-widget')?.classList.contains('is-night');
+
     const pad   = { l: 12, r: 12, t: 18, b: 28 };
     const plotW = W - pad.l - pad.r;
     const plotH = H - pad.t - pad.b;
@@ -905,8 +907,13 @@ function drawSolarCurve(hoverX = null) {
 
     // ── Gradient pod krzywą ──────────────────────────────────
     const grad = ctx.createLinearGradient(0, pad.t, 0, H - pad.b);
-    grad.addColorStop(0, 'rgba(245,158,11,0.35)');
-    grad.addColorStop(1, 'rgba(245,158,11,0.03)');
+    if (isNightMode) {
+        grad.addColorStop(0, 'rgba(59, 130, 246, 0.25)'); // Niebieskawy w nocy
+        grad.addColorStop(1, 'rgba(59, 130, 246, 0.02)');
+    } else {
+        grad.addColorStop(0, 'rgba(245,158,11,0.35)'); // Pomarańczowy w dzień
+        grad.addColorStop(1, 'rgba(245,158,11,0.03)');
+    }
 
     // ── Sinusoida produkcji (zachmurzenie spłaszcza krzywą) ──
     const cloudFactor = 1 - (clouds / 100) * 0.85;
@@ -939,13 +946,20 @@ function drawSolarCurve(hoverX = null) {
     
     // Gradient dla linii: Niebieski (rano) -> Pomarańczowy (południe) -> Niebieski (wieczór)
     const strokeGrad = ctx.createLinearGradient(pad.l, 0, pad.l + plotW, 0);
-    strokeGrad.addColorStop(0.0, '#3B82F6'); // Rano: Niebieski
-    strokeGrad.addColorStop(0.5, '#F59E0B'); // Południe: Pomarańczowy
-    strokeGrad.addColorStop(1.0, '#3B82F6'); // Wieczór: Niebieski
+    if (isNightMode) {
+        strokeGrad.addColorStop(0.0, '#1e40af');
+        strokeGrad.addColorStop(0.5, '#3b82f6'); // Chłodny niebieski środek
+        strokeGrad.addColorStop(1.0, '#1e40af');
+        ctx.shadowColor = 'rgba(59, 130, 246, 0.5)';
+    } else {
+        strokeGrad.addColorStop(0.0, '#3B82F6');
+        strokeGrad.addColorStop(0.5, '#F59E0B'); // Ciepły pomarańczowy środek
+        strokeGrad.addColorStop(1.0, '#3B82F6');
+        ctx.shadowColor = 'rgba(245,158,11,0.6)';
+    }
     ctx.strokeStyle = strokeGrad;
 
     ctx.lineWidth = 2.5;
-    ctx.shadowColor = 'rgba(245,158,11,0.6)';
     ctx.shadowBlur = 8;
     ctx.stroke();
     ctx.shadowBlur = 0;
@@ -1128,6 +1142,22 @@ function renderForecast(view) {
     }
 }
 
+function getMoonPhase(date) {
+    let year = date.getFullYear();
+    let month = date.getMonth() + 1;
+    const day = date.getDate();
+    if (month < 3) { year--; month += 12; }
+    const c = 365.25 * year;
+    const e = 30.6 * month;
+    let jd = c + e + day - 694039.09;
+    jd /= 29.5305882;
+    let b = Math.floor(jd);
+    jd -= b;
+    b = Math.round(jd * 8);
+    if (b >= 8) b = 0;
+    return b;
+}
+
 async function loadSolarData() {
     clearTimeout(solarTimeout);
     console.log('☀ loadSolarData() uruchomiona o:', new Date().toLocaleTimeString());
@@ -1150,7 +1180,7 @@ async function loadSolarData() {
     try {
         const url = `https://api.open-meteo.com/v1/forecast` +
             `?latitude=${LAT}&longitude=${LNG}` +
-            `&current=shortwave_radiation,cloudcover,is_day,temperature_2m,weather_code` +
+            `&current=shortwave_radiation,cloudcover,is_day,temperature_2m,weather_code,relative_humidity_2m` +
             `&daily=shortwave_radiation_sum,temperature_2m_max,temperature_2m_min,sunrise,sunset` +
             `&timezone=Europe/Warsaw` +
             `&forecast_days=7`;
@@ -1191,12 +1221,53 @@ async function loadSolarData() {
         const clouds    = Math.round(data.current?.cloudcover ?? 0);
         const isDay     = data.current?.is_day === 1;
         const currentTemp = Math.round(data.current?.temperature_2m ?? 0);
+        const humidity  = Math.round(data.current?.relative_humidity_2m ?? 0);
         const efficiency = 0.82;
         const panelOutput = isDay
             ? Math.round((radiation / 1000) * PEAK_POWER * efficiency)
             : 0;
 
-        console.log(`☀ Promieniowanie: ${radiation} W/m² | Zachmurzenie: ${clouds}% | Dzień: ${isDay}`);
+        // Aktualizacja wyglądu słońca (Dzień/Noc)
+        const sunWrapper = document.getElementById('sun-wrapper');
+        const heroSection = document.querySelector('.hero');
+        const solarWidget = document.querySelector('.solar-widget');
+        const titleText = document.getElementById('sw-title-text');
+
+        if (sunWrapper) {
+            if (isDay) {
+                sunWrapper.classList.remove('is-night');
+                sunWrapper.removeAttribute('data-phase'); // Reset fazy w dzień
+            } else {
+                sunWrapper.classList.add('is-night');
+                
+                // ── OBLICZANIE FAZY KSIĘŻYCA (Lokalnie) ──
+                const phaseClass = getMoonPhase(new Date());
+                sunWrapper.setAttribute('data-phase', phaseClass);
+                console.log(`🌙 Faza księżyca (calc): ${phaseClass}`);
+            }
+        }
+        if (heroSection) {
+            if (isDay) heroSection.classList.remove('is-night');
+            else heroSection.classList.add('is-night');
+            
+            // ── EFEKT MGŁY (FOG) ──
+            // Włącz mgłę jeśli wilgotność > 90% LUB kod pogody to mgła (45, 48)
+            const wCode = data.current?.weather_code ?? 0;
+            const isFoggy = humidity >= 90 || (wCode >= 45 && wCode <= 48);
+            
+            if (isFoggy) heroSection.classList.add('is-foggy');
+            else heroSection.classList.remove('is-foggy');
+        }
+        if (solarWidget) {
+            if (isDay) solarWidget.classList.remove('is-night');
+            else solarWidget.classList.add('is-night');
+        }
+
+        if (titleText) {
+            titleText.textContent = isDay ? 'Nasłonecznienie dzisiaj' : 'Warunki nocne';
+        }
+
+        console.log(`☀ Promieniowanie: ${radiation} W/m² | Zachmurzenie: ${clouds}% | Wilgotność: ${humidity}%`);
 
         const elRadiation = document.getElementById('sw-radiation');
         const elClouds    = document.getElementById('sw-clouds');
@@ -1315,6 +1386,17 @@ async function loadSolarData() {
 
         console.error('☀ Solar widget błąd:', err);
 
+        // Fallback: Ustaw tryb nocny na podstawie godziny systemowej, jeśli API zawiodło
+        const h = new Date().getHours();
+        if (h < 6 || h >= 20) {
+            const sunWrapper = document.getElementById('sun-wrapper');
+            const heroSection = document.querySelector('.hero');
+            const solarWidget = document.querySelector('.solar-widget');
+            if (sunWrapper) sunWrapper.classList.add('is-night');
+            if (heroSection) heroSection.classList.add('is-night');
+            if (solarWidget) solarWidget.classList.add('is-night');
+        }
+
         if (loadingEl) {
             loadingEl.style.display = 'flex';
             loadingEl.innerHTML = `
@@ -1333,6 +1415,17 @@ async function loadSolarData() {
                 });
             }
         }
+
+// ── SUN PARALLAX EFFECT ──────────────────────────────
+const sunWrapper = document.getElementById('sun-wrapper');
+if (sunWrapper) {
+    document.addEventListener('mousemove', (e) => {
+        // Oblicz przesunięcie względem środka ekranu (subtelny efekt: mnożnik 0.02)
+        const x = (e.clientX - window.innerWidth / 2) * -0.02;
+        const y = (e.clientY - window.innerHeight / 2) * -0.02;
+        sunWrapper.style.transform = `translate(${x}px, ${y}px)`;
+    });
+}
 
         // Spróbuj ponownie za 2 minuty po błędzie
         solarTimeout = setTimeout(loadSolarData, 2 * 60 * 1000);
@@ -1501,3 +1594,21 @@ if (filtersContainer && blogCards.length > 0) {
         });
     });
 }
+
+// ── SHOOTING STAR LOGIC ──────────────────────────────
+function scheduleShootingStar() {
+    const hero = document.querySelector('.hero');
+    const star = document.getElementById('shooting-star');
+    
+    if (hero && star && hero.classList.contains('is-night')) {
+        // Losowa pozycja startowa (górna prawa ćwiartka)
+        star.style.top = (Math.random() * 40) + '%';
+        star.style.right = (Math.random() * 40) + '%';
+        
+        star.classList.remove('animate');
+        void star.offsetWidth; // Trigger reflow
+        star.classList.add('animate');
+    }
+    setTimeout(scheduleShootingStar, Math.random() * 15000 + 10000); // Co 10-25s
+}
+setTimeout(scheduleShootingStar, 5000);

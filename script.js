@@ -10,6 +10,9 @@ const inputs = {
     orient:  { el: document.getElementById('select-orientation'), out: null, unit: '' },
     panelPower: { el: document.getElementById('select-panel-power'), out: null, unit: '' },
 };
+const calcModeEl = document.getElementById('select-calc-mode');
+const CALC_STORAGE_KEY = 'solarBoilerCalcStateV1';
+let isRestoringCalculatorState = false;
 
 // ── 2. Sprawdź czy wszystkie elementy istnieją ──────
 // (jeśli któryś zwróci null w konsoli — masz błąd ID w HTML)
@@ -31,9 +34,29 @@ console.log('Kalkulator — elementy:', {
 let animationState = {
     previousExCost: 0,
     currentMode: 'boiler', // 'boiler' lub 'buffer'
-    heaters: [2.0],
+    heaters: [3.0],
     boilerOrientation: 'vertical' // 'vertical' or 'horizontal'
 };
+
+// Aktualne dane pogodowe dla korekty temperaturowej PV
+const weatherState = {
+    temperatureC: null,
+    radiationWm2: null
+};
+
+function getTemperatureEfficiencyFactor(ambientTempC, radiationWm2) {
+    if (!Number.isFinite(ambientTempC) || !Number.isFinite(radiationWm2)) return 1;
+
+    // Uproszczony model temperatury ogniwa:
+    // Tcell = Tamb + ((NOCT - 20) / 800) * G
+    const NOCT = 45;
+    const gammaPmp = -0.0035; // -0.35%/°C (typowy panel mono PERC)
+    const cellTempC = ambientTempC + ((NOCT - 20) / 800) * radiationWm2;
+    const factor = 1 + gammaPmp * (cellTempC - 25);
+
+    // Ograniczenie skrajnych wartości dla stabilności kalkulatora
+    return Math.max(0.75, Math.min(1.05, factor));
+}
 
 /**
  * Animates a number value in a DOM element.
@@ -70,6 +93,97 @@ function rotatePoint(px, py, ox, oy, cos_t, sin_t) {
     const x_rotated = x_translated * cos_t - y_translated * sin_t;
     const y_rotated = x_translated * sin_t + y_translated * cos_t;
     return { x: ox + x_rotated, y: oy + y_rotated };
+}
+
+function saveCalculatorState() {
+    if (isRestoringCalculatorState) return;
+    try {
+        const state = {
+            currentMode: animationState.currentMode,
+            heaters: animationState.heaters,
+            boilerOrientation: animationState.boilerOrientation,
+            coilChecked: !!document.getElementById('check-coil')?.checked,
+            values: {
+                volume: inputs.volume.el?.value,
+                persons: inputs.persons.el?.value,
+                price: inputs.price.el?.value,
+                sunny: inputs.sunny.el?.value,
+                tilt: inputs.tilt.el?.value,
+                orient: inputs.orient.el?.value,
+                panelPower: inputs.panelPower.el?.value,
+                calcMode: calcModeEl?.value || 'live'
+            }
+        };
+        localStorage.setItem(CALC_STORAGE_KEY, JSON.stringify(state));
+    } catch (err) {
+        console.warn('Kalkulator: nie można zapisać ustawień do localStorage.', err);
+    }
+}
+
+function restoreCalculatorState() {
+    try {
+        const raw = localStorage.getItem(CALC_STORAGE_KEY);
+        if (!raw) return false;
+        const state = JSON.parse(raw);
+        if (!state || typeof state !== 'object') return false;
+
+        isRestoringCalculatorState = true;
+
+        if (state.currentMode) {
+            const modeBtn = document.querySelector(`.mode-btn[data-mode="${state.currentMode}"]`);
+            if (modeBtn) modeBtn.click();
+        }
+
+        if (state.values && typeof state.values === 'object') {
+            const valueMap = {
+                volume: inputs.volume.el,
+                persons: inputs.persons.el,
+                price: inputs.price.el,
+                sunny: inputs.sunny.el,
+                tilt: inputs.tilt.el,
+                orient: inputs.orient.el,
+                panelPower: inputs.panelPower.el
+            };
+            Object.entries(valueMap).forEach(([key, el]) => {
+                if (el && state.values[key] !== undefined && state.values[key] !== null) {
+                    el.value = state.values[key];
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            });
+            if (calcModeEl && state.values.calcMode) {
+                calcModeEl.value = state.values.calcMode;
+            }
+        }
+
+        if (Array.isArray(state.heaters) && state.heaters.length > 0) {
+            const cleaned = state.heaters
+                .map(v => parseFloat(v))
+                .filter(v => Number.isFinite(v) && v > 0);
+            if (cleaned.length > 0) animationState.heaters = cleaned;
+        }
+
+        if (state.boilerOrientation === 'vertical' || state.boilerOrientation === 'horizontal') {
+            animationState.boilerOrientation = state.boilerOrientation;
+            document.querySelectorAll('.orientation-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-orientation') === state.boilerOrientation);
+            });
+        }
+
+        const coilEl = document.getElementById('check-coil');
+        if (coilEl && typeof state.coilChecked === 'boolean') {
+            coilEl.checked = state.coilChecked;
+            coilEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        renderHeaters();
+        calcUpdate();
+        return true;
+    } catch (err) {
+        console.warn('Kalkulator: nie można odczytać ustawień z localStorage.', err);
+        return false;
+    } finally {
+        isRestoringCalculatorState = false;
+    }
 }
 
 // ── HEATER MANAGEMENT ───────────────────────────────
@@ -130,8 +244,8 @@ function renderHeaters() {
 }
 
 document.getElementById('btn-add-heater')?.addEventListener('click', () => {
-    // Dodaj nową grzałkę (domyślnie 2kW lub 3kW dla bufora)
-    const defaultPower = animationState.currentMode === 'buffer' ? 3.0 : 2.0;
+    // Dodaj nową grzałkę (domyślnie 3kW)
+    const defaultPower = 3.0;
     animationState.heaters.push(defaultPower);
     renderHeaters();
     calcUpdate();
@@ -218,7 +332,10 @@ function calcUpdate() {
 
     // Pokrycie słoneczne: większy bojler = lepszy akumulator
     const volumeFactor    = 0.78 + Math.min(0.17, (vol - 50) / 1500);
-    const solarCoverage   = (sunny / 365) * volumeFactor * tiltEff * orient;
+    const tempEffLive     = getTemperatureEfficiencyFactor(weatherState.temperatureC, weatherState.radiationWm2);
+    const calcMode        = calcModeEl ? calcModeEl.value : 'live';
+    const tempEff         = calcMode === 'standard' ? 1 : tempEffLive;
+    const solarCoverage   = (sunny / 365) * volumeFactor * tiltEff * orient * tempEff;
     const saving          = costPerYear * solarCoverage;
 
     const investmentCost  = 3200;
@@ -231,14 +348,49 @@ function calcUpdate() {
         else console.warn('Kalkulator: brak elementu #' + id);
     };
 
+    const tempImpactEl = document.getElementById('calc-temp-impact');
+    const liveTempEl = document.getElementById('val-live-temp');
+    if (tempImpactEl) {
+        if (calcMode === 'standard') {
+            tempImpactEl.textContent = 'Wpływ temperatury paneli: tryb Standard (STC 25°C) - korekta temperaturowa = 0.0%';
+            if (liveTempEl) liveTempEl.textContent = 'STC 25°C';
+        } else if (Number.isFinite(weatherState.temperatureC) && Number.isFinite(weatherState.radiationWm2)) {
+            const impactPct = (tempEff - 1) * 100;
+            const sign = impactPct >= 0 ? '+' : '';
+            tempImpactEl.textContent =
+                `Wpływ temperatury paneli (na bazie bieżącej pogody): ${sign}${impactPct.toFixed(1)}% sprawności` +
+                ` | T powietrza: ${Math.round(weatherState.temperatureC)}°C, promieniowanie: ${Math.round(weatherState.radiationWm2)} W/m²`;
+            if (liveTempEl) liveTempEl.textContent = `${Math.round(weatherState.temperatureC)}°C`;
+        } else {
+            tempImpactEl.textContent = 'Wpływ temperatury paneli (na bazie bieżącej pogody): oczekiwanie na dane...';
+            if (liveTempEl) liveTempEl.textContent = '--°C';
+        }
+    }
+
     set('result-energy',  Math.round(totalPerYear) + ' kWh');
     set('result-cost',    Math.round(costPerYear)  + ' zł');
     set('result-saving',  Math.round(saving)       + ' zł');
     set('result-payback', paybackYears > 0 ? paybackYears.toFixed(1) + ' lat' : '—');
+    set('mobile-saving',  Math.round(saving)       + ' zł');
+    set('mobile-payback', paybackYears > 0 ? paybackYears.toFixed(1) + ' lat' : '—');
 
     const savingSub = document.getElementById('result-saving-sub');
     if (savingSub) {
-        savingSub.textContent = `zł oszczędności (pokrycie ok. ${Math.round(solarCoverage * 100)}%)`;
+        const modeTxt = calcMode === 'standard' ? 'Standard' : 'Na żywo';
+        savingSub.textContent = `zł oszczędności (pokrycie ok. ${Math.round(solarCoverage * 100)}%, tryb: ${modeTxt})`;
+    }
+
+    const breakdownEl = document.getElementById('calc-factor-breakdown');
+    if (breakdownEl) {
+        const daysEff = sunny / 365;
+        const pct = (v) => `${Math.round(v * 100)}%`;
+        breakdownEl.innerHTML =
+            `<div class="factor-row"><span>Słoneczne dni</span><strong>${pct(daysEff)}</strong></div>` +
+            `<div class="factor-row"><span>Pojemność (akumulacja)</span><strong>${pct(volumeFactor)}</strong></div>` +
+            `<div class="factor-row"><span>Kąt nachylenia</span><strong>${pct(tiltEff)}</strong></div>` +
+            `<div class="factor-row"><span>Orientacja dachu</span><strong>${pct(orient)}</strong></div>` +
+            `<div class="factor-row"><span>Temperatura paneli</span><strong>${pct(tempEff)}</strong></div>` +
+            `<div class="factor-row"><span>Końcowe pokrycie</span><strong>${pct(solarCoverage)}</strong></div>`;
     }
 
     // ── Aktualizacja sekcji "Przykład obliczeniowy" ──
@@ -404,6 +556,8 @@ function calcUpdate() {
     if (recSetMount) {
         recSetMount.innerHTML = `<strong>Montaż:</strong> Profesjonalna instalacja na dachu lub gruncie`;
     }
+
+    saveCalculatorState();
 }
 
 // ── 4. Eventy na suwakach ───────────────────────────
@@ -482,7 +636,7 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
             volSlider.value = 180;
             
             // Domyślna grzałka dla bojlera
-            animationState.heaters = [2.0];
+            animationState.heaters = [3.0];
 
             document.querySelector('label[for="range-volume"]').innerHTML = 'Pojemność bojlera <span id="val-volume">180 L</span>';
             inputs.volume.out = document.getElementById('val-volume');
@@ -520,7 +674,9 @@ if (coilCheck && coilInfo) {
 
 // ── 5. ★ KLUCZOWE: wywołaj przy starcie ─────────────
 renderHeaters(); // Inicjalizacja grzałek
-calcUpdate();
+if (!restoreCalculatorState()) {
+    calcUpdate();
+}
 
 // ── Przycisk automatycznego doboru ───────────────────
 const autoSetBtn = document.getElementById('btn-auto-set');
@@ -554,94 +710,104 @@ if (autoSetBtn) {
 
 // ── FORM ─────────────────────────────────────────────
 const contactForm = document.getElementById('contact-form');
-const phoneInput = contactForm.querySelector('input[type="tel"]');
+if (contactForm) {
+    const phoneInput = contactForm.querySelector('input[type="tel"]');
 
-if (phoneInput) {
-    phoneInput.addEventListener('input', function(e) {
-        let val = e.target.value.replace(/\D/g, '');
-        val = val.substring(0, 9);
-        if (val.length > 6) {
-            val = val.substring(0, 3) + ' ' + val.substring(3, 6) + ' ' + val.substring(6);
-        } else if (val.length > 3) {
-            val = val.substring(0, 3) + ' ' + val.substring(3);
+    if (phoneInput) {
+        phoneInput.addEventListener('input', function(e) {
+            let val = e.target.value.replace(/\D/g, '');
+            val = val.substring(0, 9);
+            if (val.length > 6) {
+                val = val.substring(0, 3) + ' ' + val.substring(3, 6) + ' ' + val.substring(6);
+            } else if (val.length > 3) {
+                val = val.substring(0, 3) + ' ' + val.substring(3);
+            }
+            e.target.value = val;
+        });
+    }
+
+    contactForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const phoneVal = phoneInput ? phoneInput.value.replace(/\D/g, '') : ''; // Usuwa wszystko co nie jest cyfrą
+
+        if (phoneVal.length !== 9) {
+            alert('Proszę podać poprawny numer telefonu (9 cyfr).');
+            return;
         }
-        e.target.value = val;
+
+        const status = document.getElementById('form-status');
+        const btn = this.querySelector('button[type="submit"]');
+        const originalBtnText = btn.innerText;
+        
+        btn.innerText = 'Wysyłanie...';
+        btn.disabled = true;
+        if (status) status.innerHTML = '<span style="color:#F59E0B">Wysyłanie...</span>';
+
+        fetch("https://formsubmit.co/ajax/zbyszekszczesny83@gmail.com", {
+            method: "POST",
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+                name: this.querySelector('input[type="text"]').value,
+                phone: phoneVal,
+                email: this.querySelector('input[type="email"]').value,
+                boiler: this.querySelector('select').value,
+                message: this.querySelector('textarea').value,
+                _subject: "---> Słoneczny Bojler nowe zapytanie <---",
+                _autoresponse: "Dziękujemy za wiadomość! Skontaktujemy się wkrótce."
+            })
+        })
+        .then(response => {
+            if (response.ok) {
+                // Ukryj formularz i pokaż podziękowanie
+                const originalChildren = Array.from(this.children);
+                originalChildren.forEach(child => child.style.display = 'none');
+                
+                // Ukryj status pod formularzem jeśli istnieje
+                if(status) status.style.display = 'none';
+
+                const successDiv = document.createElement('div');
+                successDiv.className = 'form-success';
+                successDiv.style.textAlign = 'center';
+                successDiv.style.padding = '20px';
+                successDiv.innerHTML = `
+                    <div style="font-size: 3rem; margin-bottom: 15px;">✅</div>
+                    <h3 style="color: #fff; margin-bottom: 10px;">Dziękuję za wiadomość!</h3>
+                    <p style="color: rgba(255,255,255,0.7); margin-bottom: 20px;">Otrzymałem Twoje zgłoszenie. Skontaktuję się w ciągu 24 godzin.</p>
+                    <button type="button" id="new-msg-btn" class="btn-submit" style="background: transparent; border: 1px solid var(--sun); color: var(--sun); width: auto; padding: 10px 25px;">Wyślij kolejną wiadomość</button>
+                `;
+                this.appendChild(successDiv);
+
+                document.getElementById('new-msg-btn').addEventListener('click', () => {
+                    successDiv.remove();
+                    originalChildren.forEach(child => child.style.display = '');
+                    if(status) {
+                        status.style.display = 'block';
+                        status.innerHTML = '';
+                    }
+                    this.reset();
+                });
+            } else {
+                throw new Error('Błąd wysyłki');
+            }
+        })
+        .catch(error => {
+            if (status) status.innerHTML = '<span style="color:#ef4444">Błąd wysyłania. Spróbuj zadzwonić: 574 322 909</span>';
+        })
+        .finally(() => {
+            btn.innerText = originalBtnText;
+            btn.disabled = false;
+        });
     });
 }
 
-contactForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const phoneVal = phoneInput.value.replace(/\D/g, ''); // Usuwa wszystko co nie jest cyfrą
-
-    if (phoneVal.length !== 9) {
-        alert('Proszę podać poprawny numer telefonu (9 cyfr).');
-        return;
-    }
-
-    const status = document.getElementById('form-status');
-    const btn = this.querySelector('button[type="submit"]');
-    const originalBtnText = btn.innerText;
-    
-    btn.innerText = 'Wysyłanie...';
-    btn.disabled = true;
-    status.innerHTML = '<span style="color:#F59E0B">Wysyłanie...</span>';
-
-    fetch("https://formsubmit.co/ajax/zbyszekszczesny83@gmail.com", {
-        method: "POST",
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({
-            name: this.querySelector('input[type="text"]').value,
-            phone: phoneVal,
-            email: this.querySelector('input[type="email"]').value,
-            boiler: this.querySelector('select').value,
-            message: this.querySelector('textarea').value,
-            _subject: "---> Słoneczny Bojler nowe zapytanie <---",
-            _autoresponse: "Dziękujemy za wiadomość! Skontaktujemy się wkrótce."
-        })
-    })
-    .then(response => {
-        if (response.ok) {
-            // Ukryj formularz i pokaż podziękowanie
-            const originalChildren = Array.from(this.children);
-            originalChildren.forEach(child => child.style.display = 'none');
-            
-            // Ukryj status pod formularzem jeśli istnieje
-            if(status) status.style.display = 'none';
-
-            const successDiv = document.createElement('div');
-            successDiv.className = 'form-success';
-            successDiv.style.textAlign = 'center';
-            successDiv.style.padding = '20px';
-            successDiv.innerHTML = `
-                <div style="font-size: 3rem; margin-bottom: 15px;">✅</div>
-                <h3 style="color: #fff; margin-bottom: 10px;">Dziękuję za wiadomość!</h3>
-                <p style="color: rgba(255,255,255,0.7); margin-bottom: 20px;">Otrzymałem Twoje zgłoszenie. Skontaktuję się w ciągu 24 godzin.</p>
-                <button type="button" id="new-msg-btn" class="btn-submit" style="background: transparent; border: 1px solid var(--sun); color: var(--sun); width: auto; padding: 10px 25px;">Wyślij kolejną wiadomość</button>
-            `;
-            this.appendChild(successDiv);
-
-            document.getElementById('new-msg-btn').addEventListener('click', () => {
-                successDiv.remove();
-                originalChildren.forEach(child => child.style.display = '');
-                if(status) {
-                    status.style.display = 'block';
-                    status.innerHTML = '';
-                }
-                this.reset();
-            });
-        } else {
-            throw new Error('Błąd wysyłki');
-        }
-    })
-    .catch(error => {
-        status.innerHTML = '<span style="color:#ef4444">Błąd wysyłania. Spróbuj zadzwonić: 574 322 909</span>';
-    })
-    .finally(() => {
-        btn.innerText = originalBtnText;
-        btn.disabled = false;
+const clearCalcStateBtn = document.getElementById('btn-clear-calc-state');
+if (clearCalcStateBtn) {
+    clearCalcStateBtn.addEventListener('click', () => {
+        localStorage.removeItem(CALC_STORAGE_KEY);
+        location.reload();
     });
-});
+}
 
 // ── FAQ ───────────────────────────────────────────────
 document.querySelectorAll('.faq-item').forEach(item => {
@@ -664,8 +830,9 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
 // ── ANIMATION ON SCROLL ───────────────────────────────
 const observerOptions = {
     root: null,
-    rootMargin: '0px',
-    threshold: 0.1
+    // Trigger reveal a bit earlier to avoid "empty gap" while scrolling
+    rootMargin: '140px 0px -40px 0px',
+    threshold: 0.01
 };
 
 const observer = new IntersectionObserver((entries, observer) => {
@@ -685,6 +852,7 @@ document.querySelectorAll('.fade-in-section').forEach(section => {
 const backToTopBtn = document.getElementById('back-to-top');
 
 window.addEventListener('scroll', () => {
+    if (!backToTopBtn) return;
     if (window.scrollY > 300) {
         backToTopBtn.classList.add('visible');
     } else {
@@ -692,9 +860,15 @@ window.addEventListener('scroll', () => {
     }
 });
 
-backToTopBtn.addEventListener('click', () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-});
+if (calcModeEl) {
+    calcModeEl.addEventListener('change', calcUpdate);
+}
+
+if (backToTopBtn) {
+    backToTopBtn.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+}
 
 // ── COOKIE CONSENT ───────────────────────────────────
 const initCookieConsent = () => {
@@ -1142,20 +1316,30 @@ function renderForecast(view) {
     }
 }
 
-function getMoonPhase(date) {
-    let year = date.getFullYear();
-    let month = date.getMonth() + 1;
-    const day = date.getDate();
-    if (month < 3) { year--; month += 12; }
-    const c = 365.25 * year;
-    const e = 30.6 * month;
-    let jd = c + e + day - 694039.09;
-    jd /= 29.5305882;
-    let b = Math.floor(jd);
-    jd -= b;
-    b = Math.round(jd * 8);
-    if (b >= 8) b = 0;
-    return b;
+function getMoonData(date) {
+    const SYNODIC_MONTH = 29.530588853;
+    // Astronomical reference new moon: 2000-01-06 18:14 UTC
+    const KNOWN_NEW_MOON_UTC = Date.UTC(2000, 0, 6, 18, 14, 0);
+    const daysSinceNew = (date.getTime() - KNOWN_NEW_MOON_UTC) / 86400000;
+    const age = ((daysSinceNew % SYNODIC_MONTH) + SYNODIC_MONTH) % SYNODIC_MONTH;
+    const phase = age / SYNODIC_MONTH; // 0..1
+    const illumination = 0.5 * (1 - Math.cos(2 * Math.PI * phase)); // 0..1
+    const waxing = phase < 0.5; // true = przybywa
+    const phaseIndex = Math.round(phase * 8) % 8; // zgodne z istniejącymi klasami CSS
+
+    return { phase, age, illumination, waxing, phaseIndex };
+}
+
+const DEBUG_FORCE_NIGHT = new URLSearchParams(window.location.search).get('night') === '1';
+if (DEBUG_FORCE_NIGHT) {
+    console.log('🌙 Debug: wymuszony tryb nocny przez parametr ?night=1');
+}
+
+function applyMoonVisuals(sunWrapper, moon) {
+    if (!sunWrapper || !moon) return;
+    sunWrapper.setAttribute('data-phase', moon.phaseIndex);
+    const haloAlpha = (0.14 + moon.illumination * 0.58).toFixed(3);
+    sunWrapper.style.setProperty('--moon-halo-alpha', haloAlpha);
 }
 
 async function loadSolarData() {
@@ -1220,8 +1404,15 @@ async function loadSolarData() {
         const radiation = Math.round(data.current?.shortwave_radiation ?? 0);
         const clouds    = Math.round(data.current?.cloudcover ?? 0);
         const isDay     = data.current?.is_day === 1;
+        const visualIsDay = DEBUG_FORCE_NIGHT ? false : isDay;
         const currentTemp = Math.round(data.current?.temperature_2m ?? 0);
         const humidity  = Math.round(data.current?.relative_humidity_2m ?? 0);
+
+        // Dane do korekty temperaturowej kalkulatora
+        weatherState.temperatureC = currentTemp;
+        weatherState.radiationWm2 = radiation;
+        calcUpdate();
+
         const efficiency = 0.82;
         const panelOutput = isDay
             ? Math.round((radiation / 1000) * PEAK_POWER * efficiency)
@@ -1234,21 +1425,25 @@ async function loadSolarData() {
         const titleText = document.getElementById('sw-title-text');
 
         if (sunWrapper) {
-            if (isDay) {
+            if (visualIsDay) {
                 sunWrapper.classList.remove('is-night');
                 sunWrapper.removeAttribute('data-phase'); // Reset fazy w dzień
+                sunWrapper.style.removeProperty('--moon-halo-alpha');
             } else {
                 sunWrapper.classList.add('is-night');
                 
                 // ── OBLICZANIE FAZY KSIĘŻYCA (Lokalnie) ──
-                const phaseClass = getMoonPhase(new Date());
-                sunWrapper.setAttribute('data-phase', phaseClass);
-                console.log(`🌙 Faza księżyca (calc): ${phaseClass}`);
+                const moon = getMoonData(new Date());
+                applyMoonVisuals(sunWrapper, moon);
+                console.log(`🌙 Faza księżyca: idx=${moon.phaseIndex}, illum=${moon.illumination.toFixed(3)}, waxing=${moon.waxing}`);
             }
         }
         if (heroSection) {
-            if (isDay) heroSection.classList.remove('is-night');
-            else heroSection.classList.add('is-night');
+            if (visualIsDay) {
+                heroSection.classList.remove('is-night');
+            } else {
+                heroSection.classList.add('is-night');
+            }
             
             // ── EFEKT MGŁY (FOG) ──
             // Włącz mgłę jeśli wilgotność > 90% LUB kod pogody to mgła (45, 48)
@@ -1259,12 +1454,27 @@ async function loadSolarData() {
             else heroSection.classList.remove('is-foggy');
         }
         if (solarWidget) {
-            if (isDay) solarWidget.classList.remove('is-night');
+            if (visualIsDay) solarWidget.classList.remove('is-night');
             else solarWidget.classList.add('is-night');
         }
 
         if (titleText) {
-            titleText.textContent = isDay ? 'Nasłonecznienie dzisiaj' : 'Warunki nocne';
+            titleText.textContent = visualIsDay ? 'Nasłonecznienie dzisiaj' : 'Warunki nocne';
+        }
+
+        // Aktualizacja Favicon (Słońce / Księżyc)
+        const favicon = document.querySelector("link[rel~='icon']");
+        if (favicon) {
+            const svgAnim = `<style>text{animation:f 1.5s ease-out}@keyframes f{from{opacity:0}to{opacity:1}}</style>`;
+            favicon.href = visualIsDay
+                ? `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22>${svgAnim}<text y=%22.9em%22 font-size=%2290%22>☀️</text></svg>`
+                : `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22>${svgAnim}<text y=%22.9em%22 font-size=%2290%22>🌙</text></svg>`;
+        }
+
+        // Aktualizacja Theme Color (Pasek adresu)
+        const themeMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeMeta) {
+            themeMeta.content = visualIsDay ? '#F7F3EC' : '#0f172a';
         }
 
         console.log(`☀ Promieniowanie: ${radiation} W/m² | Zachmurzenie: ${clouds}% | Wilgotność: ${humidity}%`);
@@ -1305,10 +1515,10 @@ async function loadSolarData() {
 
         // Mapowanie kodów WMO na ikony i tekst
         if (wCode === 0) {
-            wIcon = isDay ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            wIcon = visualIsDay ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
             wText = 'Bezchmurnie';
         } else if (wCode === 1 || wCode === 2) {
-            wIcon = isDay ? '<i class="fas fa-cloud-sun"></i>' : '<i class="fas fa-cloud-moon"></i>';
+            wIcon = visualIsDay ? '<i class="fas fa-cloud-sun"></i>' : '<i class="fas fa-cloud-moon"></i>';
             wText = 'Małe zachmurzenie';
         } else if (wCode === 3) {
             wIcon = '<i class="fas fa-cloud"></i>';
@@ -1388,13 +1598,26 @@ async function loadSolarData() {
 
         // Fallback: Ustaw tryb nocny na podstawie godziny systemowej, jeśli API zawiodło
         const h = new Date().getHours();
-        if (h < 6 || h >= 20) {
+        if (DEBUG_FORCE_NIGHT || h < 6 || h >= 20) {
             const sunWrapper = document.getElementById('sun-wrapper');
             const heroSection = document.querySelector('.hero');
             const solarWidget = document.querySelector('.solar-widget');
             if (sunWrapper) sunWrapper.classList.add('is-night');
-            if (heroSection) heroSection.classList.add('is-night');
+            if (heroSection) {
+                const moon = getMoonData(new Date());
+                heroSection.classList.add('is-night');
+                applyMoonVisuals(sunWrapper, moon);
+            }
             if (solarWidget) solarWidget.classList.add('is-night');
+            const favicon = document.querySelector("link[rel~='icon']");
+            if (favicon) {
+                const svgAnim = `<style>text{animation:f 1.5s ease-out}@keyframes f{from{opacity:0}to{opacity:1}}</style>`;
+                favicon.href = `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22>${svgAnim}<text y=%22.9em%22 font-size=%2290%22>🌙</text></svg>`;
+            }
+            const themeMeta = document.querySelector('meta[name="theme-color"]');
+            if (themeMeta) {
+                themeMeta.content = '#0f172a';
+            }
         }
 
         if (loadingEl) {
@@ -1435,45 +1658,46 @@ if (sunWrapper) {
         if (btn) btn.classList.remove('loading');
     }
 }
-loadSolarData();
-window.addEventListener('resize', () => {
-    const canvas = document.getElementById('solarCanvas');
-    if (canvas && canvas.style.display !== 'none') {
-        const sunriseText = document.getElementById('sw-sunrise').textContent;
-        if (sunriseText !== '--:--') loadSolarData();
-    }
-});
+const solarCanvasEl = document.getElementById('solarCanvas');
+if (solarCanvasEl) {
+    loadSolarData();
 
-// Obsługa myszy na wykresie
-const canvasEl = document.getElementById('solarCanvas');
-if (canvasEl) {
-    canvasEl.addEventListener('mousemove', (e) => {
-        const rect = canvasEl.getBoundingClientRect();
+    window.addEventListener('resize', () => {
+        if (solarCanvasEl.style.display !== 'none') {
+            const sunriseEl = document.getElementById('sw-sunrise');
+            const sunriseText = sunriseEl ? sunriseEl.textContent : '--:--';
+            if (sunriseText !== '--:--') loadSolarData();
+        }
+    });
+
+    // Obsługa myszy na wykresie
+    solarCanvasEl.addEventListener('mousemove', (e) => {
+        const rect = solarCanvasEl.getBoundingClientRect();
         const x = e.clientX - rect.left;
         drawSolarCurve(x);
     });
-    canvasEl.addEventListener('mouseleave', () => {
+    solarCanvasEl.addEventListener('mouseleave', () => {
         drawSolarCurve(null);
     });
-}
 
-// Obsługa przycisku odświeżania
-const refreshBtnEl = document.getElementById('sw-refresh-btn');
-if (refreshBtnEl) {
-    refreshBtnEl.addEventListener('click', () => {
-        loadSolarData();
+    // Obsługa przycisku odświeżania
+    const refreshBtnEl = document.getElementById('sw-refresh-btn');
+    if (refreshBtnEl) {
+        refreshBtnEl.addEventListener('click', () => {
+            loadSolarData();
+        });
+    }
+
+    // Obsługa przełączania widoku prognozy
+    document.querySelectorAll('.sw-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.sw-toggle-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentForecastView = btn.getAttribute('data-view');
+            renderForecast(currentForecastView);
+        });
     });
 }
-
-// Obsługa przełączania widoku prognozy
-document.querySelectorAll('.sw-toggle-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('.sw-toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentForecastView = btn.getAttribute('data-view');
-        renderForecast(currentForecastView);
-    });
-});
 
 // ── HERO SAVINGS ANIMATION ───────────────────────────
 const heroSavingsEl = document.getElementById('hero-savings-val');
@@ -1612,3 +1836,106 @@ function scheduleShootingStar() {
     setTimeout(scheduleShootingStar, Math.random() * 15000 + 10000); // Co 10-25s
 }
 setTimeout(scheduleShootingStar, 5000);
+
+// IMAGE LIGHTBOX
+function initImageLightbox() {
+    const items = document.querySelectorAll('.js-lightbox-item');
+    if (!items.length) return;
+
+    if (!document.getElementById('image-lightbox')) {
+        const lightbox = document.createElement('div');
+        lightbox.id = 'image-lightbox';
+        lightbox.className = 'image-lightbox';
+        lightbox.innerHTML = `
+            <button type="button" class="image-lightbox-close" aria-label="Zamknij podgląd">&times;</button>
+            <button type="button" class="image-lightbox-nav prev" aria-label="Poprzednie zdjęcie">&#10094;</button>
+            <button type="button" class="image-lightbox-nav next" aria-label="Następne zdjęcie">&#10095;</button>
+            <div class="image-lightbox-inner">
+                <img class="image-lightbox-img" src="" alt="">
+                <div class="image-lightbox-caption"></div>
+            </div>
+        `;
+        document.body.appendChild(lightbox);
+    }
+
+    const lightboxEl = document.getElementById('image-lightbox');
+    const lightboxImg = lightboxEl.querySelector('.image-lightbox-img');
+    const lightboxCaption = lightboxEl.querySelector('.image-lightbox-caption');
+    const lightboxClose = lightboxEl.querySelector('.image-lightbox-close');
+    const prevBtn = lightboxEl.querySelector('.image-lightbox-nav.prev');
+    const nextBtn = lightboxEl.querySelector('.image-lightbox-nav.next');
+    const images = Array.from(items);
+    let currentIndex = 0;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let prevOverflow = '';
+
+    const showByIndex = (index) => {
+        if (!images.length) return;
+        if (index < 0) index = images.length - 1;
+        if (index >= images.length) index = 0;
+        currentIndex = index;
+        const imgEl = images[currentIndex];
+        lightboxImg.src = imgEl.currentSrc || imgEl.src;
+        lightboxImg.alt = imgEl.alt || '';
+        lightboxCaption.textContent = imgEl.getAttribute('data-caption') || imgEl.alt || '';
+    };
+
+    const openLightbox = (imgEl) => {
+        const foundIndex = images.indexOf(imgEl);
+        currentIndex = foundIndex >= 0 ? foundIndex : 0;
+        showByIndex(currentIndex);
+        prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        lightboxEl.classList.add('open');
+    };
+
+    const closeLightbox = () => {
+        lightboxEl.classList.remove('open');
+        lightboxImg.src = '';
+        document.body.style.overflow = prevOverflow;
+    };
+
+    const showPrev = () => showByIndex(currentIndex - 1);
+    const showNext = () => showByIndex(currentIndex + 1);
+
+    items.forEach((imgEl) => {
+        imgEl.addEventListener('click', () => openLightbox(imgEl));
+    });
+
+    lightboxClose.addEventListener('click', closeLightbox);
+    prevBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showPrev();
+    });
+    nextBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showNext();
+    });
+    lightboxEl.addEventListener('click', (e) => {
+        if (e.target === lightboxEl) closeLightbox();
+    });
+    lightboxEl.addEventListener('touchstart', (e) => {
+        if (!lightboxEl.classList.contains('open')) return;
+        const t = e.changedTouches[0];
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+    }, { passive: true });
+    lightboxEl.addEventListener('touchend', (e) => {
+        if (!lightboxEl.classList.contains('open')) return;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - touchStartX;
+        const dy = t.clientY - touchStartY;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+            if (dx < 0) showNext();
+            else showPrev();
+        }
+    }, { passive: true });
+    document.addEventListener('keydown', (e) => {
+        if (!lightboxEl.classList.contains('open')) return;
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === 'ArrowLeft') showPrev();
+        if (e.key === 'ArrowRight') showNext();
+    });
+}
+initImageLightbox();

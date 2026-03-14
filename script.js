@@ -1794,6 +1794,419 @@ if (hamburgerBtn && nav && navLinksContainer) {
     });
 }
 
+// ── MAGAZYN ENERGII (zakładki + kalkulatory) ──────────
+(function initEnergyStorageSection() {
+    const root = document.getElementById('magazyn-energii');
+    if (!root) return;
+
+    const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+    const toNum = (v, fallback) => {
+        const n = typeof v === 'string' ? parseFloat(v) : Number(v);
+        return Number.isFinite(n) ? n : fallback;
+    };
+    const formatIntPl = (n) => Math.round(n).toLocaleString('pl-PL').replace(/\u00A0/g, ' ');
+    const format1Pl = (n) => toNum(n, 0).toLocaleString('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).replace(/\u00A0/g, ' ');
+    const formatKwp = (n) => `${format1Pl(n)} kWp`;
+    const formatKw = (n) => `${format1Pl(n)} kW`;
+    const formatKwh = (n) => `${format1Pl(n)} kWh`;
+
+    const el = {
+        tabButtons: root.querySelectorAll('.me-tab-btn'),
+        panels: {
+            battery: document.getElementById('me-panel-battery'),
+            inverter: document.getElementById('me-panel-inverter'),
+            pv: document.getElementById('me-panel-pv'),
+            guide: document.getElementById('me-panel-guide')
+        },
+        // Battery
+        kwhSlider: document.getElementById('me-sl-kwh'),
+        kwhOut: document.getElementById('me-val-kwh'),
+        goalSelect: document.getElementById('me-sel-goal'),
+        autonomyWrap: document.getElementById('me-autonomy-wrap'),
+        autonomySlider: document.getElementById('me-sl-auto'),
+        autonomyOut: document.getElementById('me-val-auto'),
+        resCap: document.getElementById('me-res-cap'),
+        resUsable: document.getElementById('me-res-usable'),
+        resModules: document.getElementById('me-res-modules'),
+        resCover: document.getElementById('me-res-cover'),
+        battTip: document.getElementById('me-batt-tip'),
+        // Inverter
+        pvSlider: document.getElementById('me-sl-pv'),
+        pvOut: document.getElementById('me-val-pv'),
+        loadSlider: document.getElementById('me-sl-load'),
+        loadOut: document.getElementById('me-val-load'),
+        invTypeSelect: document.getElementById('me-sel-inv-type'),
+        invCards: document.getElementById('me-inv-cards'),
+        invTip: document.getElementById('me-inv-tip'),
+        // PV
+        pvKwpSlider: document.getElementById('me-sl-pvkwp'),
+        pvKwpOut: document.getElementById('me-val-pvkwp'),
+        panelSelect: document.getElementById('me-sel-panel'),
+        orientSelect: document.getElementById('me-sel-orient'),
+        tiltSlider: document.getElementById('me-sl-tilt'),
+        tiltOut: document.getElementById('me-val-tilt'),
+        pvCards: document.getElementById('me-pv-cards'),
+        pvTip: document.getElementById('me-pv-tip'),
+        prodCanvas: document.getElementById('me-chart-prod')
+    };
+
+    const state = {
+        annualKwh: toNum(el.kwhSlider?.value, 4500),
+        goal: el.goalSelect?.value || 'auto',
+        autonomyH: toNum(el.autonomySlider?.value, 8),
+        pvKwp: toNum(el.pvSlider?.value, toNum(el.pvKwpSlider?.value, 5)),
+        peakLoadKw: toNum(el.loadSlider?.value, 3),
+        invType: el.invTypeSelect?.value || 'hybrid',
+        panelW: toNum(el.panelSelect?.value, 450),
+        orientPct: toNum(el.orientSelect?.value, 100),
+        tiltDeg: toNum(el.tiltSlider?.value, 35)
+    };
+
+    function setActiveTab(tabKey) {
+        el.tabButtons.forEach((b) => {
+            const isActive = b.dataset.tab === tabKey;
+            b.classList.toggle('active', isActive);
+            b.setAttribute('aria-selected', String(isActive));
+            b.tabIndex = isActive ? 0 : -1;
+        });
+        Object.entries(el.panels).forEach(([key, panel]) => {
+            if (!panel) return;
+            panel.classList.toggle('active', key === tabKey);
+        });
+
+        if (tabKey === 'pv') requestAnimationFrame(() => renderPv());
+    }
+
+    function initTabs() {
+        el.tabButtons.forEach((btn) => {
+            btn.setAttribute('aria-selected', String(btn.classList.contains('active')));
+            btn.tabIndex = btn.classList.contains('active') ? 0 : -1;
+            btn.addEventListener('click', () => setActiveTab(btn.dataset.tab));
+        });
+    }
+
+    function calcBattery() {
+        const dailyAvg = state.annualKwh / 365;
+        let target = 0;
+        if (state.goal === 'backup') {
+            target = Math.max(5, (dailyAvg / 24) * state.autonomyH);
+        } else {
+            target = Math.max(5, dailyAvg * 0.5);
+        }
+
+        const cap = Math.ceil(target / 5) * 5;
+        const usable = cap * 0.9;
+        const modules = Math.round(cap / 5);
+
+        // Heurystyka: zużycie po zmroku bywa wysokie, + zapas/straty/ochrona baterii
+        const effective = usable * 0.75;
+        const nightNeed = dailyAvg * 0.8;
+        const cover = nightNeed > 0 ? clamp((effective / nightNeed) * 100, 0, 100) : 0;
+
+        return { cap, usable, modules, cover, dailyAvg };
+    }
+
+    function renderBattery() {
+        if (el.kwhOut) el.kwhOut.textContent = `${formatIntPl(state.annualKwh)} kWh`;
+        if (el.autonomyOut) el.autonomyOut.textContent = `${formatIntPl(state.autonomyH)} h`;
+        if (el.autonomyWrap) el.autonomyWrap.style.display = state.goal === 'backup' ? 'block' : 'none';
+
+        const r = calcBattery();
+        if (el.resCap) el.resCap.textContent = formatKwh(r.cap);
+        if (el.resUsable) el.resUsable.textContent = formatKwh(r.usable);
+        if (el.resModules) el.resModules.textContent = `${r.modules} szt.`;
+        if (el.resCover) el.resCover.textContent = `${Math.round(r.cover)}%`;
+
+        if (el.battTip) {
+            el.battTip.classList.remove('success', 'warning');
+
+            if (state.goal === 'backup') {
+                el.battTip.textContent = `Backup: to wyliczenie zakłada średnie zużycie. Dla bezpieczeństwa policz też „krytyczne obciążenie” (lodówka, pompy, internet) i dodaj zapas.`;
+                el.battTip.classList.add('success');
+                return;
+            }
+
+            if (r.cover >= 80) {
+                el.battTip.textContent = '✅ Bateria powinna pokryć większość zużycia po zmroku (w typowym dniu).';
+                el.battTip.classList.add('success');
+            } else if (r.cover >= 55) {
+                el.battTip.textContent = '💡 Bateria pokryje typowe zużycie wieczorno-nocne, ale przy dużych odbiornikach może zabraknąć energii.';
+            } else {
+                el.battTip.textContent = '⚠️ Dla tego zużycia warto rozważyć większą baterię (albo zwiększenie mocy PV), jeśli celem jest maksymalna autokonsumpcja.';
+                el.battTip.classList.add('warning');
+            }
+        }
+    }
+
+    function pickStep(value, steps) {
+        for (const s of steps) if (value <= s) return s;
+        return steps[steps.length - 1];
+    }
+
+    function renderInverter() {
+        if (el.pvOut) el.pvOut.textContent = formatKwp(state.pvKwp);
+        if (el.loadOut) el.loadOut.textContent = formatKw(state.peakLoadKw);
+
+        if (!el.invCards || !el.invTip) return;
+
+        const steps = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20];
+        const base = Math.max(state.pvKwp, state.peakLoadKw);
+
+        let target = base;
+        let tip = 'Dobierz falownik do mocy PV i szczytowego obciążenia.';
+
+        if (state.invType === 'hybrid') {
+            target = Math.max(base, 5);
+            target = Math.min(target, 12);
+            tip = 'Hybrydowy: zwykle minimum 5 kW, a moc dobiera się do PV i obciążenia.';
+        } else if (state.invType === 'ongrid') {
+            target = Math.max(state.pvKwp * 0.9, 2);
+            tip = 'On-grid: falownik dobiera się głównie do mocy PV (często DC/AC ~1.0–1.2).';
+        } else {
+            target = Math.max(state.peakLoadKw * 1.3, 2);
+            tip = 'Off-grid: dolicz zapas na rozruch (silniki, pompy, sprężarki) i ograniczenia mocy chwilowej.';
+        }
+
+        const recommended = pickStep(target, steps);
+        const minimum = pickStep(target * 0.75, steps);
+        const reserve = pickStep(target * 1.25, steps);
+
+        const options = Array.from(new Set([minimum, recommended, reserve])).sort((a, b) => a - b);
+        const normalized = (opts) => {
+            if (opts.length === 3) return opts;
+            if (opts.length === 2) return [opts[0], opts[0], opts[1]];
+            return [opts[0], opts[0], opts[0]];
+        };
+        const [optMin, optRec, optMax] = normalized(options);
+
+        const card = (kw, label, isRecommended) => `
+            <div class="me-inv-card${isRecommended ? ' recommended' : ''}">
+                ${isRecommended ? '<div class="me-inv-badge">REKOMENDOWANY</div>' : ''}
+                <div class="me-inv-kw">${formatIntPl(kw)} kW</div>
+                <div class="me-inv-label">${label}</div>
+            </div>
+        `;
+
+        el.invCards.innerHTML = [
+            card(optMin, 'Minimalny', optMin === optRec && optMin === optMax),
+            card(optRec, 'Rekomendowany', true),
+            card(optMax, 'Z zapasem', false)
+        ].join('');
+
+        el.invTip.textContent = tip;
+        el.invTip.classList.remove('success', 'warning');
+        el.invTip.classList.add('success');
+    }
+
+    function getTiltFactor(tiltDeg) {
+        const diff = Math.abs(tiltDeg - 35);
+        const penalty = Math.min(0.15, (diff / 25) * 0.15);
+        return 1 - penalty;
+    }
+
+    function drawProdChart(canvas, seriesA, seriesB) {
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const width = Math.max(1, canvas.clientWidth);
+        const height = Math.max(1, canvas.clientHeight);
+        const dpr = window.devicePixelRatio || 1;
+
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        ctx.clearRect(0, 0, width, height);
+
+        const padL = 26;
+        const padR = 10;
+        const padT = 10;
+        const padB = 22;
+
+        const plotW = width - padL - padR;
+        const plotH = height - padT - padB;
+        if (plotW <= 0 || plotH <= 0) return;
+
+        const maxVal = Math.max(1, ...seriesA, ...seriesB);
+        const months = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+
+        ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padL, padT + plotH);
+        ctx.lineTo(padL + plotW, padT + plotH);
+        ctx.stroke();
+
+        const groupW = plotW / 12;
+        const barW = Math.max(6, groupW * 0.26);
+        const gap = Math.max(3, groupW * 0.10);
+
+        for (let i = 0; i < 12; i++) {
+            const x0 = padL + i * groupW + (groupW - (barW * 2 + gap)) / 2;
+
+            const hA = (seriesA[i] / maxVal) * plotH;
+            const hB = (seriesB[i] / maxVal) * plotH;
+
+            ctx.fillStyle = '#F59E0B';
+            ctx.fillRect(x0, padT + plotH - hA, barW, hA);
+
+            ctx.fillStyle = '#D1CAC0';
+            ctx.fillRect(x0 + barW + gap, padT + plotH - hB, barW, hB);
+
+            ctx.fillStyle = 'rgba(0,0,0,0.35)';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(months[i], padL + i * groupW + groupW / 2, padT + plotH + 6);
+        }
+    }
+
+    function renderPv() {
+        if (el.pvKwpOut) el.pvKwpOut.textContent = formatKwp(state.pvKwp);
+        if (el.tiltOut) el.tiltOut.textContent = `${formatIntPl(state.tiltDeg)}°`;
+
+        if (!el.pvCards || !el.pvTip) return;
+
+        const baseYieldPerKwp = 1000; // Łomża ~950–1050 kWh/kWp/rok
+        const tiltFactor = getTiltFactor(state.tiltDeg);
+        const orientFactor = clamp(state.orientPct / 100, 0.4, 1.0);
+
+        const annualProd = state.pvKwp * baseYieldPerKwp * orientFactor * tiltFactor;
+        const annualNorth = state.pvKwp * baseYieldPerKwp * 0.65 * tiltFactor;
+
+        const panelsCount = Math.ceil((state.pvKwp * 1000) / state.panelW);
+        const actualKwp = (panelsCount * state.panelW) / 1000;
+
+        const suggestedPv = Math.ceil(((state.annualKwh / 1000) * 1.2) * 2) / 2; // skok co 0.5 kWp
+
+        el.pvCards.innerHTML = `
+            <div class="me-pv-card">
+                <div class="me-pv-card-val">${formatIntPl(panelsCount)} szt.</div>
+                <div class="me-pv-card-label">Panele ${formatIntPl(state.panelW)}W (~${format1Pl(actualKwp)} kWp)</div>
+            </div>
+            <div class="me-pv-card">
+                <div class="me-pv-card-val">~${formatIntPl(annualProd)} kWh</div>
+                <div class="me-pv-card-label">Szacowana produkcja roczna</div>
+            </div>
+            <div class="me-pv-card">
+                <div class="me-pv-card-val">${format1Pl(suggestedPv)} kWp</div>
+                <div class="me-pv-card-label">Sugerowana moc dla ${formatIntPl(state.annualKwh)} kWh/rok</div>
+            </div>
+        `;
+
+        el.pvTip.classList.remove('success', 'warning');
+        if (state.pvKwp < suggestedPv * 0.8) {
+            el.pvTip.textContent = `⚠️ Dla zużycia ${formatIntPl(state.annualKwh)} kWh sugerowana moc PV to ok. ${format1Pl(suggestedPv)} kWp (z zapasem na ładowanie baterii i straty).`;
+            el.pvTip.classList.add('warning');
+        } else {
+            el.pvTip.textContent = `✅ Parametry wyglądają dobrze. Szacowana produkcja: ~${formatIntPl(annualProd)} kWh/rok (orientacja ${formatIntPl(state.orientPct)}%, kąt ${formatIntPl(state.tiltDeg)}°).`;
+            el.pvTip.classList.add('success');
+        }
+
+        const monthShare = [0.03, 0.05, 0.08, 0.11, 0.13, 0.14, 0.14, 0.12, 0.09, 0.06, 0.03, 0.02];
+        const monthlyA = monthShare.map((s) => (annualProd * s));
+        const monthlyB = monthShare.map((s) => (annualNorth * s));
+        drawProdChart(el.prodCanvas, monthlyA, monthlyB);
+    }
+
+    function syncPvValue(newValue) {
+        state.pvKwp = clamp(newValue, 1, 20);
+        if (el.pvSlider) el.pvSlider.value = String(state.pvKwp);
+        if (el.pvKwpSlider) el.pvKwpSlider.value = String(state.pvKwp);
+    }
+
+    function bindEvents() {
+        if (el.kwhSlider) {
+            el.kwhSlider.addEventListener('input', () => {
+                state.annualKwh = toNum(el.kwhSlider.value, state.annualKwh);
+                renderBattery();
+                renderPv();
+            });
+        }
+
+        if (el.goalSelect) {
+            el.goalSelect.addEventListener('change', () => {
+                state.goal = el.goalSelect.value;
+                renderBattery();
+            });
+        }
+
+        if (el.autonomySlider) {
+            el.autonomySlider.addEventListener('input', () => {
+                state.autonomyH = toNum(el.autonomySlider.value, state.autonomyH);
+                renderBattery();
+            });
+        }
+
+        if (el.pvSlider) {
+            el.pvSlider.addEventListener('input', () => {
+                syncPvValue(toNum(el.pvSlider.value, state.pvKwp));
+                renderInverter();
+                renderPv();
+            });
+        }
+
+        if (el.pvKwpSlider) {
+            el.pvKwpSlider.addEventListener('input', () => {
+                syncPvValue(toNum(el.pvKwpSlider.value, state.pvKwp));
+                renderInverter();
+                renderPv();
+            });
+        }
+
+        if (el.loadSlider) {
+            el.loadSlider.addEventListener('input', () => {
+                state.peakLoadKw = toNum(el.loadSlider.value, state.peakLoadKw);
+                renderInverter();
+            });
+        }
+
+        if (el.invTypeSelect) {
+            el.invTypeSelect.addEventListener('change', () => {
+                state.invType = el.invTypeSelect.value;
+                renderInverter();
+            });
+        }
+
+        if (el.panelSelect) {
+            el.panelSelect.addEventListener('change', () => {
+                state.panelW = toNum(el.panelSelect.value, state.panelW);
+                renderPv();
+            });
+        }
+
+        if (el.orientSelect) {
+            el.orientSelect.addEventListener('change', () => {
+                state.orientPct = toNum(el.orientSelect.value, state.orientPct);
+                renderPv();
+            });
+        }
+
+        if (el.tiltSlider) {
+            el.tiltSlider.addEventListener('input', () => {
+                state.tiltDeg = toNum(el.tiltSlider.value, state.tiltDeg);
+                renderPv();
+            });
+        }
+
+        let resizeRaf = null;
+        window.addEventListener('resize', () => {
+            if (resizeRaf) cancelAnimationFrame(resizeRaf);
+            resizeRaf = requestAnimationFrame(() => renderPv());
+        });
+    }
+
+    initTabs();
+    // Upewnij się, że oba suwaki PV startują z tej samej wartości
+    syncPvValue(state.pvKwp);
+
+    bindEvents();
+    renderBattery();
+    renderInverter();
+    renderPv();
+})();
+
 // ── BLOG TAG FILTERING ───────────────────────────────
 const filtersContainer = document.querySelector('.blog-filters');
 const blogCards = document.querySelectorAll('.blog-card[data-tags]');

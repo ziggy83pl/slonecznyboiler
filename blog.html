@@ -5,6 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blog i Dziennik Rozwoju | Słoneczny Bojler</title>
     <meta name="description" content="Dowiedz się, jak działa nasz kalkulator oszczędności, skąd pobieramy dane o nasłonecznieniu i jakie technologie napędzają Słoneczny Bojler.">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="SłonecznyBojler – montaż Łomża i okolice">
+    <meta name="theme-color" content="#F7F3EC">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Blog i Dziennik Rozwoju | Słoneczny Bojler">
+    <meta name="twitter:description" content="Transparentnie o technologii, danych i rozwiązaniach na stronie Słoneczny Bojler.">
+    <meta name="twitter:image" content="https://slonecznyboiler.pages.dev/logo/slonce.webp">
+    <meta property="og:title" content="Blog i Dziennik Rozwoju | Słoneczny Bojler">
+    <meta property="og:description" content="Transparentnie o technologii, danych i rozwiązaniach na stronie Słoneczny Bojler.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Słoneczny Bojler">
+    <meta property="og:locale" content="pl_PL">
+    <meta property="og:url" content="https://slonecznyboiler.pages.dev/blog.html">
+    <meta property="og:image" content="https://slonecznyboiler.pages.dev/logo/slonce.webp">
+    <meta property="og:image:alt" content="Blog Słoneczny Bojler - technologia i dane">
+    <link rel="canonical" href="https://slonecznyboiler.pages.dev/blog.html">
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Blog",
+      "@id": "https://slonecznyboiler.pages.dev/blog.html#blog",
+      "name": "Blog i Dziennik Rozwoju | Słoneczny Bojler",
+      "url": "https://slonecznyboiler.pages.dev/blog.html",
+      "inLanguage": "pl-PL",
+      "publisher": {
+        "@type": "Organization",
+        "name": "SłonecznyBojler",
+        "url": "https://slonecznyboiler.pages.dev/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://slonecznyboiler.pages.dev/logo/logo.svg"
+        }
+      }
+    }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -40,6 +78,42 @@
         </div>
     </header>
 
+    <!-- Galeria realizacji -->
+    <section id="blog-realizacje">
+        <div class="section-inner">
+            <div class="section-head">
+                <div class="section-label">Materiały z montażu</div>
+                <h2 class="section-title">Galeria i YouTube Shorts</h2>
+                <p class="section-sub">Kliknij zdjęcie, aby powiększyć. Wideo otworzysz bezpośrednio na stronie lub na YouTube.</p>
+            </div>
+            <div class="realizacje-grid">
+                <figure class="real-card">
+                    <img src="image/panele.jpg" alt="Panele PV po montażu" loading="lazy" class="js-lightbox-item" data-caption="Panele PV po montażu">
+                    <figcaption>Panele PV po montażu</figcaption>
+                </figure>
+
+                <figure class="real-card">
+                    <img src="image/falownik.png" alt="Falownik MPPT w instalacji" loading="lazy" class="js-lightbox-item" data-caption="Falownik MPPT">
+                    <figcaption>Falownik MPPT</figcaption>
+                </figure>
+
+                <div class="real-card video">
+                    <iframe
+                        src="https://www.youtube-nocookie.com/embed/K0tg7Okmp0A"
+                        title="Słoneczny Bojler - YouTube Shorts"
+                        loading="lazy"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerpolicy="strict-origin-when-cross-origin"
+                        allowfullscreen></iframe>
+                    <div class="real-video-caption">
+                        Wideo: realizacja w formacie Shorts
+                        <a href="https://www.youtube.com/shorts/K0tg7Okmp0A" target="_blank" rel="noopener noreferrer">Otwórz na YouTube</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Lista wpisów -->
     <section class="blog-section">
         <div class="section-inner">
@@ -52,6 +126,29 @@
             </div>
 
             <div class="blog-grid">
+
+                <!-- Artykuł 5: Magazyn energii -->
+                <article class="blog-card" data-tags="Technologia">
+                    <div class="blog-card-img" style="background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%); display:flex; align-items:center; justify-content:center; font-size:3rem;">
+                        🔋
+                    </div>
+                    <div class="blog-card-content">
+                        <div class="blog-meta">
+                            <span class="blog-tag">Technologia</span>
+                            <span class="blog-date">Poradnik</span>
+                        </div>
+                        <h3>Magazyn energii w domu: kiedy ma sens i jak go dobrać?</h3>
+                        <p>Magazyn energii (bateria + falownik hybrydowy) pozwala zużyć więcej prądu z PV na miejscu — szczególnie wieczorem i w nocy. Poniżej proste zasady doboru oraz typowe pułapki.</p>
+                        <ul class="blog-list">
+                            <li><strong>Krok 1:</strong> Weź roczne zużycie kWh z faktur (12 miesięcy).</li>
+                            <li><strong>Krok 2:</strong> PV dobierz z zapasem: ~1 kWp / 1000 kWh + ~20% na straty i ładowanie.</li>
+                            <li><strong>Krok 3:</strong> Bateria pod autokonsumpcję: ok. 50% dziennego zużycia (min. 5 kWh).</li>
+                            <li><strong>Backup:</strong> licz w godzinach autonomii i „krytycznym obciążeniu” (nie całym domu).</li>
+                            <li><strong>Uwaga:</strong> sprawdź kompatybilność falownik ↔ bateria (to najczęstszy błąd).</li>
+                        </ul>
+                        <p style="margin-top:12px;">Na stronie głównej dodaliśmy kalkulator doboru baterii, falownika i PV — przejdź do sekcji <a href="index.html#magazyn-energii"><strong>„Magazyn energii”</strong></a> i sprawdź swój wariant.</p>
+                    </div>
+                </article>
 
                 <!-- Artykuł 4: Kalkulator 2.0 -->
                 <article class="blog-card" data-tags="Technologia UX / Design">
@@ -149,7 +246,7 @@
         <p>© 2026 SłonecznyBojler — Montaż systemów PV do podgrzewania wody</p>
     </footer>
 
-    <script src="script.js"></script>
+    <script src="blog.js"></script>
     <script src="portfolio-logos.js" defer></script>
 </body>
 </html>

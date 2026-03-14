@@ -949,6 +949,55 @@ input[type="range"]::-webkit-slider-thumb {
     padding-top: 12px; border-top: 1px solid var(--border); line-height: 1.5;
 }
 
+/* ── STORAGE CHART VISUALIZATION ────────────────── */
+.storage-chart-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 40px;
+    height: 180px;
+    margin-top: 24px;
+    padding: 20px 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+.storage-chart-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100px;
+    text-align: center;
+    height: 100%;
+}
+.storage-chart-val {
+    font-family: 'Sora', sans-serif;
+    font-weight: 800;
+    font-size: 1.5rem;
+    color: var(--sun);
+    margin-bottom: 8px;
+}
+.storage-chart-bar-wrap {
+    width: 100%;
+    height: 100%;
+    flex-grow: 1; /* POPRAWKA: Zapewnia, że kontener słupka wypełni dostępną przestrzeń */
+    background: rgba(255,255,255,0.08);
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    align-items: flex-end;
+}
+.storage-chart-bar {
+    width: 100%;
+    background: var(--sun);
+    border-radius: 6px 6px 0 0;
+    transition: height 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.storage-chart-label {
+    margin-top: 12px;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.6);
+    font-weight: 600;
+    line-height: 1.3;
+}
+
 /* ── PERSONAL TOUCH ───────────────────────────────── */
 #osobiscie { background: var(--white); }
 .personal-wrapper {
@@ -2225,4 +2274,235 @@ footer {
     .stratification-wrapper { display: flex; flex-direction: column; text-align: center; }
     .stratification-visual { margin: 0 auto; }
     .calc-form { padding: 24px 20px; } /* Mniejszy padding na telefonach */
+}
+
+/* ── MAGAZYN ENERGII (zakładki + kalkulatory) ───────────── */
+.me-tabs-nav {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+}
+.me-tab-btn {
+    padding: 9px 20px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--ink-muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.me-tab-btn:hover { border-color: var(--sun); color: var(--sun); }
+.me-tab-btn:focus-visible { outline: 2px solid rgba(245,158,11,0.35); outline-offset: 2px; }
+.me-tab-btn.active { background: var(--sun); color: var(--ink); border-color: var(--sun); font-weight: 600; }
+
+.me-panel { display: none; }
+.me-panel.active { display: block; }
+
+.me-calc-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    align-items: start;
+}
+@media (max-width: 768px) { .me-calc-grid { grid-template-columns: 1fr; } }
+
+.me-form-title {
+    font-family: 'Sora', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 1.25rem;
+}
+
+#magazyn-energii .field select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #f9fafb;
+    color: var(--ink-soft);
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    outline: none;
+}
+#magazyn-energii .field select:focus {
+    border-color: var(--sun);
+    box-shadow: 0 0 0 4px rgba(245,158,11,0.14);
+}
+
+.me-cards-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 1rem;
+}
+@media (max-width: 480px) { .me-cards-grid { grid-template-columns: 1fr; } }
+
+.me-big-val {
+    font-family: 'Sora', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--sun);
+    margin: 6px 0 2px;
+}
+
+.me-tip-box {
+    background: rgba(245,158,11,0.08);
+    border-left: 3px solid var(--sun);
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    line-height: 1.5;
+}
+.me-tip-box.success { background: rgba(22,163,74,0.08); border-left-color: var(--green); }
+.me-tip-box.warning { background: rgba(239,68,68,0.07); border-left-color: #ef4444; }
+
+.me-inv-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 8px;
+}
+.me-inv-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+    transition: border-color 0.2s;
+}
+.me-inv-card.recommended {
+    border: 2px solid var(--sun);
+    background: var(--sun-light);
+}
+.me-inv-badge {
+    display: inline-block;
+    background: var(--sun);
+    color: var(--ink);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 100px;
+    margin-bottom: 6px;
+}
+.me-inv-kw {
+    font-family: 'Sora', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--ink);
+}
+.me-inv-label { font-size: 0.75rem; color: var(--ink-muted); margin-top: 3px; }
+
+.me-pv-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.me-pv-card {
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 12px;
+    text-align: center;
+}
+.me-pv-card-val {
+    font-family: 'Sora', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--sun);
+    margin: 4px 0 2px;
+}
+.me-pv-card-label { font-size: 0.72rem; color: var(--ink-muted); }
+
+#magazyn-energii #me-chart-prod { width: 100%; height: 100%; display: block; }
+
+.me-steps-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+@media (max-width: 640px) { .me-steps-grid { grid-template-columns: 1fr; } }
+
+.me-step-card {
+    display: flex;
+    gap: 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+}
+.me-step-num {
+    min-width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--sun);
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Sora', sans-serif;
+    font-weight: 800;
+    font-size: 0.8rem;
+}
+.me-step-title {
+    font-family: 'Sora', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 5px;
+}
+.me-step-desc {
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    line-height: 1.5;
+}
+
+.me-guide-steps { display: flex; flex-direction: column; gap: 1px; }
+.me-guide-step {
+    display: flex;
+    gap: 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    margin-bottom: 10px;
+}
+.me-guide-num {
+    font-family: 'Sora', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: rgba(245,158,11,0.25);
+    line-height: 1;
+    min-width: 44px;
+}
+.me-guide-title {
+    font-family: 'Sora', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 8px;
+}
+.me-guide-desc {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    line-height: 1.6;
+}
+.me-guide-tip {
+    margin-top: 10px;
+    font-size: 0.8rem;
+    color: var(--ink-muted);
+    background: rgba(245,158,11,0.06);
+    border-radius: 6px;
+    padding: 6px 10px;
+}
+@media (max-width: 600px) {
+    .me-guide-step { flex-direction: column; gap: 8px; }
+    .me-guide-num { font-size: 1.2rem; }
+    .me-inv-cards, .me-pv-cards { grid-template-columns: 1fr 1fr; }
 }

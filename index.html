@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
@@ -166,6 +166,7 @@
                 <li><a href="#jak-to-dziala">Jak działa</a></li>
                 <li><a href="#realizacje">Realizacje</a></li>
                 <li><a href="#kalkulator">Kalkulator</a></li>
+                <li><a href="#magazyn-energii">Magazyn energii</a></li>
                 <li><a href="blog.html">Blog</a></li>
                 <li><a href="#obszar">Obszar</a></li>
                 <li><a href="#kontakt" class="btn-nav">Darmowa wycena</a></li>
@@ -179,6 +180,7 @@
     </nav>
 
     <!-- HERO -->
+
     <div class="hero">
         <div class="hero-rays"></div>
         <div class="hero-rays-2"></div>
@@ -761,8 +763,281 @@
             </div>
         </div>
     </section>
+    <!-- MAGAZYN ENERGII -->
+    <!-- ─── START: NOWA SEKCJA MAGAZYN ENERGII ─── -->
+    <section id="magazyn-energii" style="background: var(--white);">
+        <div class="section-inner fade-in-section">
+            <div class="section-head">
+                <div class="section-label">Systemy Hybrydowe</div>
+                <h2 class="section-title">Dobierz Magazyn Energii,<br>Falownik i Instalację PV</h2>
+                <p class="section-sub">Kalkulator pomoże Ci dobrać pojemność baterii, moc falownika hybrydowego i optymalną instalację PV — krok po kroku.</p>
+            </div>
 
-    <!-- COMPARISON -->
+            <!-- ZAKŁADKI -->
+            <div class="me-tabs-nav" role="tablist">
+                <button class="me-tab-btn active" data-tab="battery" role="tab" type="button">🔋 Bateria</button>
+                <button class="me-tab-btn" data-tab="inverter" role="tab" type="button">⚡ Falownik</button>
+                <button class="me-tab-btn" data-tab="pv" role="tab" type="button">☀️ Instalacja PV</button>
+                <button class="me-tab-btn" data-tab="guide" role="tab" type="button">📖 Poradnik</button>
+            </div>
+
+            <!-- PANEL: BATERIA -->
+            <div class="me-panel active" id="me-panel-battery">
+                <div class="me-calc-grid">
+                    <div class="me-form-col">
+                        <h3 class="me-form-title">Parametry zużycia</h3>
+
+                        <div class="field">
+                            <label>Roczne zużycie energii &nbsp;<span id="me-val-kwh" class="field-val">4 500 kWh</span></label>
+                            <input type="range" id="me-sl-kwh" min="2000" max="15000" step="100" value="4500">
+                            <p style="font-size:0.75rem;color:var(--ink-muted);margin-top:4px;">Znajdziesz na fakturze za prąd. Przeciętny dom 4-osobowy: 3 500–5 000 kWh/rok.</p>
+                        </div>
+
+                        <div class="field">
+                            <label>Główny cel magazynu energii</label>
+                            <select id="me-sel-goal">
+                                <option value="auto" selected>Autokonsumpcja (mniejsze rachunki)</option>
+                                <option value="backup">Zasilanie awaryjne (backup)</option>
+                            </select>
+                        </div>
+
+                        <div class="field" id="me-autonomy-wrap" style="display:none;">
+                            <label>Czas pracy awaryjnej &nbsp;<span id="me-val-auto" class="field-val">8 h</span></label>
+                            <input type="range" id="me-sl-auto" min="1" max="48" step="1" value="8">
+                        </div>
+                    </div>
+
+                    <div class="me-results-col">
+                        <div class="me-cards-grid">
+                            <div class="result-card">
+                                <div class="result-label">Rekomendowana pojemność</div>
+                                <div class="me-big-val" id="me-res-cap">10,0 kWh</div>
+                                <div style="font-size:0.78rem;color:var(--ink-muted);">pojemność brutto baterii</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">Pojemność użytkowa (DOD 90%)</div>
+                                <div class="me-big-val" id="me-res-usable">9,0 kWh</div>
+                                <div style="font-size:0.78rem;color:var(--ink-muted);">realnie dostępne</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">Liczba modułów 5 kWh</div>
+                                <div class="me-big-val" id="me-res-modules">2 szt.</div>
+                                <div style="font-size:0.78rem;color:var(--ink-muted);">typowy moduł HV (np. BYD, Pylontech)</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">Pokrycie zużycia nocnego</div>
+                                <div class="me-big-val" id="me-res-cover">68%</div>
+                                <div style="font-size:0.78rem;color:var(--ink-muted);">energii po zmroku</div>
+                            </div>
+                        </div>
+                        <div class="me-tip-box" id="me-batt-tip">
+                            Bateria pokryje typowe zużycie wieczorno-nocne.
+                        </div>
+                        <p style="font-size:0.78rem;color:var(--ink-muted);margin-top:12px;line-height:1.5;">
+                            Typowe systemy: <strong>BYD Battery-Box, Pylontech Force H2, Huawei LUNA2000</strong>. 
+                            Do buforowania nocnego optymalny jest <strong>LFP</strong> (litowo-żelazowo-fosforanowy) — bezpieczny i trwały (3 500+ cykli).
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL: FALOWNIK -->
+            <div class="me-panel" id="me-panel-inverter">
+                <div class="me-calc-grid">
+                    <div class="me-form-col">
+                        <h3 class="me-form-title">Parametry instalacji</h3>
+
+                        <div class="field">
+                            <label>Moc instalacji PV &nbsp;<span id="me-val-pv" class="field-val">5,0 kWp</span></label>
+                            <input type="range" id="me-sl-pv" min="1" max="20" step="0.5" value="5.0">
+                        </div>
+
+                        <div class="field">
+                            <label>Szczytowe zużycie w domu &nbsp;<span id="me-val-load" class="field-val">3,0 kW</span></label>
+                            <input type="range" id="me-sl-load" min="1" max="20" step="0.5" value="3.0">
+                            <p style="font-size:0.75rem;color:var(--ink-muted);margin-top:4px;">Suma mocy urządzeń pracujących jednocześnie: AGD, ogrzewanie, ładowanie auta itp.</p>
+                        </div>
+
+                        <div class="field">
+                            <label>Typ systemu</label>
+                            <select id="me-sel-inv-type">
+                                <option value="hybrid" selected>Hybrydowy (PV + bateria + sieć)</option>
+                                <option value="ongrid">On-grid (tylko PV → sieć)</option>
+                                <option value="offgrid">Off-grid (autonomiczny)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="me-results-col">
+                        <h3 class="me-form-title">Rekomendacja falownika</h3>
+                        <div class="me-inv-cards" id="me-inv-cards"></div>
+                        <div class="me-tip-box" id="me-inv-tip" style="margin-top:16px;">
+                            Falownik hybrydowy obsługuje zarówno panele PV, jak i baterię.
+                        </div>
+                        <p style="font-size:0.78rem;color:var(--ink-muted);margin-top:12px;line-height:1.5;">
+                            Popularne marki: <strong>Fronius, SMA, Huawei SUN2000, Growatt, Deye, GoodWe</strong>. 
+                            Do systemów off-grid: <strong>Victron Energy, Studer</strong>. 
+                            Zawsze sprawdź zgodność falownika z wybraną baterią przed zakupem.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL: INSTALACJA PV -->
+            <div class="me-panel" id="me-panel-pv">
+                <div class="me-calc-grid">
+                    <div class="me-form-col">
+                        <h3 class="me-form-title">Parametry instalacji</h3>
+
+                        <div class="field">
+                            <label>Łączna moc instalacji &nbsp;<span id="me-val-pvkwp" class="field-val">5,0 kWp</span></label>
+                            <input type="range" id="me-sl-pvkwp" min="1" max="20" step="0.5" value="5.0">
+                        </div>
+
+                        <div class="field">
+                            <label>Moc jednego panelu</label>
+                            <select id="me-sel-panel">
+                                <option value="400">400 W</option>
+                                <option value="450" selected>450 W (standard)</option>
+                                <option value="500">500 W</option>
+                                <option value="550">550 W</option>
+                                <option value="600">600 W (bifacial)</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label>Orientacja dachu</label>
+                            <select id="me-sel-orient">
+                                <option value="100">Południe — 100% wydajności</option>
+                                <option value="95">Płd.-Wsch. / Płd.-Zach. — 95%</option>
+                                <option value="80">Wschód / Zachód — 80%</option>
+                                <option value="65">Północ — 65% (niezalecane)</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label>Kąt nachylenia dachu &nbsp;<span id="me-val-tilt" class="field-val">35°</span></label>
+                            <input type="range" id="me-sl-tilt" min="10" max="60" step="5" value="35">
+                            <p style="font-size:0.75rem;color:var(--ink-muted);margin-top:4px;">Optymalne dla regionu Łomża: 32–38°.</p>
+                        </div>
+                    </div>
+
+                    <div class="me-results-col">
+                        <div class="me-pv-cards" id="me-pv-cards"></div>
+                        <div class="me-tip-box" id="me-pv-tip" style="margin-bottom:16px;">
+                            Optymalne ustawienie dla lokalizacji Łomża to 35° na południe.
+                        </div>
+                        <div style="position:relative; height:220px; margin-bottom:8px;">
+                            <canvas id="me-chart-prod"></canvas>
+                        </div>
+                        <div style="display:flex;gap:16px;font-size:0.75rem;color:var(--ink-muted);">
+                            <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:3px;background:#F59E0B;display:inline-block;"></span>Twój system</span>
+                            <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:3px;background:#D1CAC0;display:inline-block;"></span>Orientacja północna</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Wskazówki montażowe -->
+                <div style="margin-top:2rem;">
+                    <h3 style="font-family:'Sora',sans-serif;font-size:1rem;margin-bottom:1rem;color:var(--ink);">⚙️ Wskazówki montażowe</h3>
+                    <div class="me-steps-grid">
+                        <div class="me-step-card">
+                            <div class="me-step-num">1</div>
+                            <div>
+                                <div class="me-step-title">Szeregowanie paneli (stringing)</div>
+                                <div class="me-step-desc">Panele łączone szeregowo generują napięcie jako sumę. Dla falownika hybrydowego 800V DC można szeregować 10–20 paneli w jednym stringu. Ważne: wszystkie panele w stringu muszą mieć identyczną moc i być tego samego producenta.</div>
+                            </div>
+                        </div>
+                        <div class="me-step-card">
+                            <div class="me-step-num">2</div>
+                            <div>
+                                <div class="me-step-title">Unikaj zacienienia</div>
+                                <div class="me-step-desc">Nawet 1 zacieniony panel może ograniczyć produkcję całego stringu. Jeśli dach ma komin, antenę lub drzewo w pobliżu — zamontuj optymalizatory (np. Tigo, SolarEdge). Koszt wzrośnie, ale straty znikną.</div>
+                            </div>
+                        </div>
+                        <div class="me-step-card">
+                            <div class="me-step-num">3</div>
+                            <div>
+                                <div class="me-step-title">Odstęp od krawędzi dachu</div>
+                                <div class="me-step-desc">Przepisy pożarnicze wymagają min. 20 cm od okapu i krawędzi połaci. Nie stawiaj paneli bezpośrednio przy kalenicy — turbulencje wiatru zwiększają nagrzewanie i skracają żywotność.</div>
+                            </div>
+                        </div>
+                        <div class="me-step-card">
+                            <div class="me-step-num">4</div>
+                            <div>
+                                <div class="me-step-title">Zgłoszenie do sieci (OSD)</div>
+                                <div class="me-step-desc">Instalacja on-grid i hybrydowa wymaga zgłoszenia do operatora sieci dystrybucyjnej. Czas oczekiwania: 30–60 dni. System off-grid (jak bojler słoneczny) — bez formalności i bez zgłoszeń.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL: PORADNIK -->
+            <div class="me-panel" id="me-panel-guide">
+                <h3 style="font-family:'Sora',sans-serif;font-size:1.05rem;margin-bottom:1.2rem;color:var(--ink);">📖 Poradnik: jak dobrać system hybrydowy (krok po kroku)</h3>
+
+                <div class="me-guide-steps">
+                    <div class="me-guide-step">
+                        <div class="me-guide-num">01</div>
+                        <div class="me-guide-body">
+                            <div class="me-guide-title">Sprawdź roczne zużycie z faktury</div>
+                            <div class="me-guide-desc">Zsumuj kWh z ostatnich 12 faktur za prąd — to Twój punkt startowy. Przeciętny dom 4-osobowy w Polsce: 3 500–5 000 kWh/rok. Jeśli masz ogrzewanie elektryczne lub ladowarkę do auta — zużycie może sięgać 8 000–15 000 kWh/rok.</div>
+                            <div class="me-guide-tip">📌 Wzór: zużycie roczne ÷ 365 = średnie dzienne zużycie</div>
+                        </div>
+                    </div>
+                    <div class="me-guide-step">
+                        <div class="me-guide-num">02</div>
+                        <div class="me-guide-body">
+                            <div class="me-guide-title">Dobierz moc instalacji PV</div>
+                            <div class="me-guide-desc">Prosta zasada: <strong>1 kWp na każde 1 000 kWh</strong> rocznego zużycia + 20% zapas na ładowanie baterii i straty. Przykład: zużycie 4 500 kWh → potrzeba ok. 5,4 kWp → zaokrągl do 6 kWp (14 paneli × 450W).</div>
+                            <div class="me-guide-tip">📌 W regionie Łomży (53°N) roczna produkcja: ~950–1050 kWh z 1 kWp</div>
+                        </div>
+                    </div>
+                    <div class="me-guide-step">
+                        <div class="me-guide-num">03</div>
+                        <div class="me-guide-body">
+                            <div class="me-guide-title">Dobierz pojemność baterii</div>
+                            <div class="me-guide-desc">
+                                <strong>Autokonsumpcja:</strong> bateria = ok. 50% dziennego zużycia. Minimum 5 kWh.<br>
+                                <strong>Backup:</strong> bateria = (zużycie roczne ÷ 365 ÷ 24) × godziny autonomii.<br>
+                                Pamiętaj o DOD (Depth of Discharge) — baterie LFP pracują do 90% pojemności, AGM do 50%.
+                            </div>
+                            <div class="me-guide-tip">📌 Zalecany typ: LFP (LiFePO4) — bezpieczny, 3 500+ cykli, nie wymaga wentylacji</div>
+                        </div>
+                    </div>
+                    <div class="me-guide-step">
+                        <div class="me-guide-num">04</div>
+                        <div class="me-guide-body">
+                            <div class="me-guide-title">Dobierz falownik hybrydowy</div>
+                            <div class="me-guide-desc">Moc falownika ≥ moc PV (kWp). Dla domu jednorodzinnego minimum 5 kW. Falownik musi być <strong>kompatybilny z wybraną baterią</strong> — nie każdy falownik obsługuje każdą baterię! Przed zakupem sprawdź listę kompatybilności producenta.</div>
+                            <div class="me-guide-tip">📌 Przykłady: Huawei SUN2000 ↔ LUNA2000, Fronius Symo ↔ BYD Battery-Box</div>
+                        </div>
+                    </div>
+                    <div class="me-guide-step">
+                        <div class="me-guide-num">05</div>
+                        <div class="me-guide-body">
+                            <div class="me-guide-title">Formalności i zgłoszenie do OSD</div>
+                            <div class="me-guide-desc">System <strong>on-grid i hybrydowy</strong> wymaga zgłoszenia do operatora sieci dystrybucyjnej (PGE, Energa, Tauron itp.) przed uruchomieniem. Czas oczekiwania: 30–60 dni. Instalator zazwyczaj prowadzi ten proces za Ciebie. System <strong>off-grid</strong> (jak Słoneczny Bojler) — zero formalności.</div>
+                            <div class="me-guide-tip">📌 Prosumer od 2022 r.: sprzedajesz nadwyżkę po cenie rynkowej (RCE), nie gromadzisz w sieci</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top:2rem;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:14px;padding:20px 24px;">
+                    <div style="font-family:'Sora',sans-serif;font-weight:700;font-size:1rem;margin-bottom:8px;color:var(--ink);">💡 Zacznij od prostego — Słoneczny Bojler</div>
+                    <p style="color:var(--ink-soft);font-size:0.9rem;line-height:1.6;margin-bottom:12px;">
+                        Nie musisz od razu inwestować w pełny system hybrydowy. Słoneczny Bojler to doskonały pierwszy krok: 
+                        inwestycja 2 500–4 800 zł, zwrot w 2 lata, zero formalności. Potem możesz rozbudować instalację.
+                    </p>
+                    <a href="#kontakt" class="btn-primary" style="display:inline-block;">Zapytaj o wycenę →</a>
+                </div>
+            </div>
+
+        </div>
+    </section>
+    <!-- ─── KONIEC: NOWA SEKCJA MAGAZYN ENERGII ─── -->
+<!-- COMPARISON -->
     <section id="porownanie" style="background: var(--white);">
         <div class="section-inner fade-in-section">
             <div class="section-head">
@@ -1026,3 +1301,4 @@
     <script src="portfolio-logos.js" defer></script>
 </body>
 </html>
+

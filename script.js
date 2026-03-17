@@ -16,19 +16,6 @@ let isRestoringCalculatorState = false;
 
 // ── 2. Sprawdź czy wszystkie elementy istnieją ──────
 // (jeśli któryś zwróci null w konsoli — masz błąd ID w HTML)
-console.log('Kalkulator — elementy:', {
-    'range-volume':  document.getElementById('range-volume'),
-    'range-persons': document.getElementById('range-persons'),
-    'range-price':   document.getElementById('range-price'),
-    'range-tilt':    document.getElementById('range-tilt'),
-    'select-orientation': document.getElementById('select-orientation'),
-    'select-panel-power': document.getElementById('select-panel-power'),
-    'range-sunny':   document.getElementById('range-sunny'),
-    'result-energy': document.getElementById('result-energy'),
-    'result-cost':   document.getElementById('result-cost'),
-    'result-saving': document.getElementById('result-saving'),
-    'result-payback':document.getElementById('result-payback'),
-});
 
 // ── State for animations & Helpers ────────────────
 let animationState = {
@@ -925,9 +912,8 @@ window.addEventListener('appinstalled', () => {
 });
 
 // Rejestracja Service Worker
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./service-worker.js')
-        .then(() => console.log('Service Worker zarejestrowany'));
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('./service-worker.js');
 }
 
 // ── SHARE BUTTON ─────────────────────────────────────
@@ -1044,6 +1030,92 @@ function formatTime(input) {
         return parts[1].substring(0, 5);
     }
     return '--:--';
+}
+
+// ── SOLAR WIDGET: Gwiazdki nocne ────────────────────────────
+const starsData = [];
+let starsAnimFrame = null;
+
+function initStars() {
+    const canvas = document.getElementById('sw-stars-canvas');
+    if (!canvas) return;
+    const widget = canvas.closest('.solar-widget');
+    if (!widget) return;
+    canvas.width  = widget.offsetWidth  || 600;
+    canvas.height = widget.offsetHeight || 200;
+    starsData.length = 0;
+    const count = Math.floor((canvas.width * canvas.height) / 1800);
+    for (let i = 0; i < count; i++) {
+        starsData.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height * 0.75,
+            r: Math.random() * 1.2 + 0.3,
+            speed: Math.random() * 0.008 + 0.003,
+            phase: Math.random() * Math.PI * 2
+        });
+    }
+}
+
+function drawStars(timestamp) {
+    const canvas = document.getElementById('sw-stars-canvas');
+    const widget = canvas ? canvas.closest('.solar-widget') : null;
+    if (!canvas || !widget || !widget.classList.contains('is-night')) {
+        starsAnimFrame = requestAnimationFrame(drawStars);
+        return;
+    }
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const t = timestamp / 1000;
+    starsData.forEach(function(s) {
+        const alpha = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * s.speed * 6 + s.phase));
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,' + alpha.toFixed(2) + ')';
+        ctx.fill();
+    });
+    starsAnimFrame = requestAnimationFrame(drawStars);
+}
+
+function startStars() {
+    initStars();
+    if (starsAnimFrame) cancelAnimationFrame(starsAnimFrame);
+    starsAnimFrame = requestAnimationFrame(drawStars);
+}
+
+// ── SOLAR WIDGET: Licznik mocy na zywo ──────────────────────
+let livePowerCurrent = 0;
+
+function updateLivePower(targetW, isDay) {
+    const wrap  = document.getElementById('sw-live-power');
+    const valEl = document.getElementById('sw-live-val');
+    if (!wrap || !valEl) return;
+    if (!isDay || targetW <= 0) {
+        wrap.style.display = 'none';
+        livePowerCurrent = 0;
+        return;
+    }
+    wrap.style.display = 'flex';
+    const start = livePowerCurrent;
+    const end   = targetW;
+    const duration = 1200;
+    let startTime = null;
+    function step(ts) {
+        if (!startTime) startTime = ts;
+        const progress = Math.min((ts - startTime) / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3);
+        const val  = Math.round(start + (end - start) * ease);
+        valEl.textContent = val.toLocaleString('pl-PL');
+        if (progress < 1) {
+            requestAnimationFrame(step);
+        } else {
+            valEl.textContent = end.toLocaleString('pl-PL');
+            livePowerCurrent = end;
+            valEl.classList.remove('updated');
+            void valEl.offsetWidth;
+            valEl.classList.add('updated');
+        }
+    }
+    requestAnimationFrame(step);
 }
 
 function drawSolarCurve(hoverX = null) {
@@ -1193,18 +1265,29 @@ function drawSolarCurve(hoverX = null) {
         const sinNow = Math.sin(Math.PI * nowRatio) * cloudFactor;
         const nowY   = pad.t + plotH * (1 - sinNow);
         
+        // Animowana kulka slonca z blaskiem i promyczkami
         ctx.save();
-        ctx.font = '20px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.shadowColor = 'rgba(245,158,11,0.9)'; ctx.shadowBlur = 14;
-        ctx.fillText('☀️', nowX, nowY);
+        var sunGrad = ctx.createRadialGradient(nowX, nowY, 0, nowX, nowY, 18);
+        sunGrad.addColorStop(0,   'rgba(253,224,71,0.9)');
+        sunGrad.addColorStop(0.4, 'rgba(245,158,11,0.5)');
+        sunGrad.addColorStop(1,   'rgba(245,158,11,0)');
+        ctx.beginPath(); ctx.arc(nowX, nowY, 18, 0, Math.PI * 2);
+        ctx.fillStyle = sunGrad; ctx.fill();
+        ctx.beginPath(); ctx.arc(nowX, nowY, 7, 0, Math.PI * 2);
+        ctx.fillStyle = '#fde047';
+        ctx.shadowColor = 'rgba(253,224,71,1)'; ctx.shadowBlur = 16;
+        ctx.fill(); ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(253,224,71,0.6)'; ctx.lineWidth = 1.5;
+        for (var ang = 0; ang < Math.PI * 2; ang += Math.PI / 4) {
+            ctx.beginPath();
+            ctx.moveTo(nowX + Math.cos(ang) * 9,  nowY + Math.sin(ang) * 9);
+            ctx.lineTo(nowX + Math.cos(ang) * 14, nowY + Math.sin(ang) * 14);
+            ctx.stroke();
+        }
         ctx.restore();
-
-        // Etykieta
-        ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '600 10px sans-serif'; ctx.textAlign = 'center';
-        const labelX = Math.min(Math.max(nowX, 28), W - 28);
-        ctx.fillText('TERAZ', labelX, nowY - 14);
+        ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+        var labelX = Math.min(Math.max(nowX, 28), W - 28);
+        ctx.fillText('TERAZ', labelX, nowY - 26);
     }
     // Etykiety osi
     ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left'; ctx.fillText('🌅', pad.l, H - 8);
@@ -1455,7 +1538,7 @@ async function loadSolarData() {
         }
         if (solarWidget) {
             if (visualIsDay) solarWidget.classList.remove('is-night');
-            else solarWidget.classList.add('is-night');
+            else { solarWidget.classList.add('is-night'); startStars(); }
         }
 
         if (titleText) {
@@ -1485,6 +1568,9 @@ async function loadSolarData() {
         if (elRadiation) elRadiation.textContent = radiation + ' W/m²';
         if (elClouds)    elClouds.textContent    = clouds + '%';
         if (elPanels)    elPanels.textContent    = panelOutput + ' W';
+
+        // Licznik mocy na zywo
+        updateLivePower(panelOutput, visualIsDay);
 
         const elTemp = document.getElementById('sw-current-temp');
         if (elTemp) {
@@ -1608,7 +1694,7 @@ async function loadSolarData() {
                 heroSection.classList.add('is-night');
                 applyMoonVisuals(sunWrapper, moon);
             }
-            if (solarWidget) solarWidget.classList.add('is-night');
+            if (solarWidget) { solarWidget.classList.add('is-night'); startStars(); }
             const favicon = document.querySelector("link[rel~='icon']");
             if (favicon) {
                 const svgAnim = `<style>text{animation:f 1.5s ease-out}@keyframes f{from{opacity:0}to{opacity:1}}</style>`;
@@ -1773,6 +1859,66 @@ if (boilerVisual) {
     boilerObserver.observe(boilerVisual);
 }
 
+// ── HERO COUNTERS ANIMATION ───────────────────────
+function initHeroCounters() {
+    const counters = document.querySelectorAll('.js-counter');
+    if (counters.length === 0) return;
+
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const el = entry.target;
+                const target = parseFloat(el.dataset.target) || 0;
+                const prefix = el.dataset.prefix || '';
+                const suffix = el.dataset.suffix || '';
+                const decimals = (el.dataset.decimals && parseInt(el.dataset.decimals)) || 0;
+
+                // Używamy istniejącej, zaawansowanej funkcji animateValue
+                animateValue(el, 0, target, 2000, { prefix, suffix, decimals });
+
+                observer.unobserve(el);
+            }
+        });
+    }, { threshold: 0.5 });
+
+    counters.forEach(counter => observer.observe(counter));
+}
+initHeroCounters();
+
+// ── HERO PARTICLES ─────────────────────────────────
+function initHeroParticles() {
+    const container = document.getElementById('hero-particles');
+    if (!container) return;
+
+    const particleCount = 50;
+    const fragment = document.createDocumentFragment();
+
+    for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('span');
+        const size = Math.random() * 3 + 1; // 1px to 4px
+        const duration = Math.random() * 10 + 8; // 8s to 18s
+        const delay = Math.random() * 8; // 0s to 8s
+        const xStart = Math.random() * 100; // vw
+        const xEndDrift = (Math.random() - 0.5) * 20; // -10vw to +10vw
+
+        particle.style.width = `${size}px`;
+        particle.style.height = `${size}px`;
+        particle.style.left = `${xStart}vw`;
+        particle.style.top = '100%'; // Start from the bottom
+        particle.style.animationDuration = `${duration}s`;
+        particle.style.animationDelay = `${delay}s`;
+
+        particle.style.setProperty('--x-start', `${(Math.random() - 0.5) * 10}vw`);
+        particle.style.setProperty('--x-end', `${xEndDrift}vw`);
+        particle.style.setProperty('--scale-start', String(Math.random() * 0.5 + 0.5));
+        particle.style.setProperty('--scale-end', String(Math.random() * 0.5 + 0.8));
+
+        fragment.appendChild(particle);
+    }
+    container.appendChild(fragment);
+}
+initHeroParticles();
+
 // ── MOBILE NAVIGATION (HAMBURGER) ───────────────────
 const nav = document.querySelector('nav');
 const hamburgerBtn = document.getElementById('hamburger-btn');
@@ -1830,6 +1976,16 @@ if (hamburgerBtn && nav && navLinksContainer) {
         resModules: document.getElementById('me-res-modules'),
         resCover: document.getElementById('me-res-cover'),
         battTip: document.getElementById('me-batt-tip'),
+        profileSelect: document.getElementById('me-sel-profile'),
+        profileDesc:   document.getElementById('me-profile-desc'),
+        seasonSelect:  document.getElementById('me-sel-season'),
+        barNight:      document.getElementById('me-bar-night'),
+        barNightLbl:   document.getElementById('me-bar-night-lbl'),
+        barWaste:      document.getElementById('me-bar-waste'),
+        barWasteLbl:   document.getElementById('me-bar-waste-lbl'),
+        barCover:      document.getElementById('me-bar-cover'),
+        barCoverLbl:   document.getElementById('me-bar-cover-lbl'),
+        dayCanvas:     document.getElementById('me-chart-day'),
         // Inverter
         pvSlider: document.getElementById('me-sl-pv'),
         pvOut: document.getElementById('me-val-pv'),
@@ -1854,6 +2010,8 @@ if (hamburgerBtn && nav && navLinksContainer) {
         annualKwh: toNum(el.kwhSlider?.value, 4500),
         goal: el.goalSelect?.value || 'auto',
         autonomyH: toNum(el.autonomySlider?.value, 8),
+        profile: el.profileSelect?.value || 'working',
+        season:  el.seasonSelect?.value  || 'annual',
         pvKwp: toNum(el.pvSlider?.value, toNum(el.pvKwpSlider?.value, 5)),
         peakLoadKw: toNum(el.loadSlider?.value, 3),
         invType: el.invTypeSelect?.value || 'hybrid',
@@ -1885,59 +2043,173 @@ if (hamburgerBtn && nav && navLinksContainer) {
         });
     }
 
+    // ── Profil dobowy ───────────────────────────────────────────
+    const PROFILE_DATA = {
+        working: {
+            direct: 0.22,
+            desc: 'Dom pusty ok. 7:00-16:00. PV produkuje, ale nikt nie korzysta - bez baterii wiekszosc energii sie marnuje. Wieczor (17-22) to szczyt zuzycia.',
+            hourly: [0.20,0.15,0.15,0.15,0.20,0.40,0.85,0.65,0.28,0.22,0.22,0.22,0.28,0.22,0.28,0.60,1.00,1.20,1.10,0.90,0.75,0.55,0.38,0.22]
+        },
+        mixed: {
+            direct: 0.45,
+            desc: 'Ktos bywa w domu w ciagu dnia. Czesc energii PV zuzywana od razu, czesc trafia do baterii na wieczor.',
+            hourly: [0.20,0.15,0.15,0.15,0.20,0.40,0.75,0.65,0.50,0.50,0.50,0.50,0.55,0.50,0.50,0.65,0.90,1.05,0.95,0.80,0.65,0.50,0.33,0.22]
+        },
+        home: {
+            direct: 0.60,
+            desc: 'Zawsze ktos w domu - emeryt, praca zdalna. Duzo energii PV zuzywane bezposrednio. Bateria mniej krytyczna niz przy pustym domu.',
+            hourly: [0.20,0.15,0.15,0.15,0.20,0.40,0.65,0.75,0.70,0.65,0.65,0.65,0.75,0.65,0.65,0.75,0.90,0.95,0.85,0.75,0.65,0.50,0.33,0.22]
+        }
+    };
+
+    // ── Dane sezonowe ────────────────────────────────────────────
+    const SEASON_DATA = {
+        annual: { pvFactor:0.85, nightMul:1.00, pvHours:10, pvShape:[0,0,0,0,0,0,0.10,0.30,0.55,0.75,0.90,1.00,1.00,0.90,0.75,0.55,0.30,0.10,0,0,0,0,0,0] },
+        summer: { pvFactor:1.30, nightMul:0.72, pvHours:14, pvShape:[0,0,0,0,0,0.05,0.20,0.50,0.75,0.90,1.00,1.00,1.00,1.00,0.90,0.75,0.55,0.35,0.15,0.05,0,0,0,0] },
+        spring: { pvFactor:0.85, nightMul:0.90, pvHours:11, pvShape:[0,0,0,0,0,0,0.10,0.35,0.60,0.80,0.95,1.00,1.00,0.95,0.80,0.60,0.35,0.10,0,0,0,0,0,0] },
+        winter: { pvFactor:0.30, nightMul:1.32, pvHours: 7, pvShape:[0,0,0,0,0,0,0,0.10,0.35,0.65,0.90,1.00,1.00,0.90,0.65,0.35,0.10,0,0,0,0,0,0,0] }
+    };
+
     function calcBattery() {
         const dailyAvg = state.annualKwh / 365;
-        let target = 0;
+        const pData = PROFILE_DATA[state.profile] || PROFILE_DATA.working;
+        const sData = SEASON_DATA[state.season]   || SEASON_DATA.annual;
+
+        const nightShare  = clamp(0.55 * sData.nightMul, 0.28, 0.85);
+        const nightEnergy = dailyAvg * nightShare;
+        const wastedPct   = Math.round((1 - pData.direct) * 100);
+
+        let target;
         if (state.goal === 'backup') {
             target = Math.max(5, (dailyAvg / 24) * state.autonomyH);
         } else {
-            target = Math.max(5, dailyAvg * 0.5);
+            target = Math.max(5, nightEnergy / 0.9);
+            if (state.season === 'winter') target *= 1.25;
+            if (state.season === 'summer') target *= 0.85;
         }
 
-        const cap = Math.ceil(target / 5) * 5;
-        const usable = cap * 0.9;
+        const cap     = Math.ceil(target / 5) * 5;
+        const usable  = cap * 0.9;
         const modules = Math.round(cap / 5);
+        const effective = usable * 0.80;
+        const cover = nightEnergy > 0 ? clamp((effective / nightEnergy) * 100, 0, 99) : 0;
 
-        // Heurystyka: zużycie po zmroku bywa wysokie, + zapas/straty/ochrona baterii
-        const effective = usable * 0.75;
-        const nightNeed = dailyAvg * 0.8;
-        const cover = nightNeed > 0 ? clamp((effective / nightNeed) * 100, 0, 100) : 0;
+        return { cap, usable, modules, cover, dailyAvg, nightShare, wastedPct, pData, sData };
+    }
 
-        return { cap, usable, modules, cover, dailyAvg };
+    function drawDailyChart(r) {
+        const canvas = el.dayCanvas;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const w = Math.max(1, canvas.clientWidth);
+        const h = Math.max(1, canvas.clientHeight);
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width  = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        const padL = 26, padR = 8, padT = 8, padB = 18;
+        const plotW = w - padL - padR;
+        const plotH = h - padT - padB;
+        if (plotW <= 0 || plotH <= 0) return;
+        const pvMax   = r.dailyAvg * r.sData.pvFactor * 0.55;
+        const loadMax = r.dailyAvg / 13;
+        const n = 24;
+        const pvSeries   = r.sData.pvShape.map(function(s) { return pvMax * s; });
+        const loadSeries = r.pData.hourly.map(function(s)  { return loadMax * s; });
+        const battSeries = loadSeries.map(function(l, i)   { return (i < 6 || i >= 17) ? Math.min(l, r.cap * 0.9 / 12) : 0; });
+        const maxVal = Math.max(1, Math.max.apply(null, pvSeries), Math.max.apply(null, loadSeries));
+        ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padL, padT + plotH);
+        ctx.lineTo(padL + plotW, padT + plotH);
+        ctx.stroke();
+        var drawArea = function(series, strokeColor, fillColor, dashed) {
+            var pts = series.map(function(v, i) {
+                return { x: padL + (i / (n-1)) * plotW, y: padT + plotH - (v / maxVal) * plotH };
+            });
+            ctx.beginPath();
+            ctx.setLineDash(dashed ? [4, 3] : []);
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for (var i = 1; i < pts.length; i++) {
+                var mx = (pts[i-1].x + pts[i].x) / 2;
+                var my = (pts[i-1].y + pts[i].y) / 2;
+                ctx.quadraticCurveTo(pts[i-1].x, pts[i-1].y, mx, my);
+            }
+            ctx.lineTo(pts[n-1].x, pts[n-1].y);
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.lineTo(pts[n-1].x, padT + plotH);
+            ctx.lineTo(pts[0].x, padT + plotH);
+            ctx.closePath();
+            ctx.fillStyle = fillColor;
+            ctx.fill();
+        };
+        drawArea(pvSeries,   '#F59E0B', 'rgba(245,158,11,0.18)', false);
+        drawArea(loadSeries, '#3b82f6', 'rgba(59,130,246,0.12)', false);
+        drawArea(battSeries, '#16a34a', 'rgba(22,163,74,0.22)',  true);
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.font = '9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        [0, 6, 12, 18, 23].forEach(function(hr) {
+            ctx.fillText(hr + ':00', padL + (hr / (n-1)) * plotW, padT + plotH + 4);
+        });
     }
 
     function renderBattery() {
-        if (el.kwhOut) el.kwhOut.textContent = `${formatIntPl(state.annualKwh)} kWh`;
-        if (el.autonomyOut) el.autonomyOut.textContent = `${formatIntPl(state.autonomyH)} h`;
+        if (el.kwhOut)       el.kwhOut.textContent       = formatIntPl(state.annualKwh) + ' kWh';
+        if (el.autonomyOut)  el.autonomyOut.textContent  = formatIntPl(state.autonomyH) + ' h';
         if (el.autonomyWrap) el.autonomyWrap.style.display = state.goal === 'backup' ? 'block' : 'none';
 
-        const r = calcBattery();
-        if (el.resCap) el.resCap.textContent = formatKwh(r.cap);
-        if (el.resUsable) el.resUsable.textContent = formatKwh(r.usable);
-        if (el.resModules) el.resModules.textContent = `${r.modules} szt.`;
-        if (el.resCover) el.resCover.textContent = `${Math.round(r.cover)}%`;
+        if (el.profileDesc) {
+            var pDataDesc = PROFILE_DATA[state.profile] || PROFILE_DATA.working;
+            el.profileDesc.textContent = pDataDesc.desc;
+        }
+
+        var r = calcBattery();
+
+        if (el.resCap)     el.resCap.textContent     = formatKwh(r.cap);
+        if (el.resUsable)  el.resUsable.textContent  = formatKwh(r.usable);
+        if (el.resModules) el.resModules.textContent = r.modules + ' szt.';
+        if (el.resCover)   el.resCover.textContent   = Math.round(r.cover) + '%';
+
+        var nightPct = Math.round(r.nightShare * 100);
+        if (el.barNight)    el.barNight.style.width    = Math.min(100, nightPct * 1.15) + '%';
+        if (el.barNightLbl) el.barNightLbl.textContent = nightPct + '%';
+        if (el.barWaste)    el.barWaste.style.width    = r.wastedPct + '%';
+        if (el.barWasteLbl) el.barWasteLbl.textContent = r.wastedPct + '%';
+        if (el.barCover)    el.barCover.style.width    = Math.min(100, r.cover) + '%';
+        if (el.barCoverLbl) el.barCoverLbl.textContent = Math.round(r.cover) + '%';
+
+        drawDailyChart(r);
 
         if (el.battTip) {
             el.battTip.classList.remove('success', 'warning');
-
             if (state.goal === 'backup') {
-                el.battTip.textContent = `Backup: to wyliczenie zakłada średnie zużycie. Dla bezpieczeństwa policz też „krytyczne obciążenie” (lodówka, pompy, internet) i dodaj zapas.`;
+                el.battTip.innerHTML = 'Backup: bateria <strong>' + formatKwh(r.cap) + '</strong> zapewni zasilanie przez <strong>' + formatIntPl(state.autonomyH) + ' h</strong>. Policz tez "krytyczne obciazenie" (lodowka, pompy, internet) i dodaj zapas.';
                 el.battTip.classList.add('success');
-                return;
-            }
-
-            if (r.cover >= 80) {
-                el.battTip.textContent = '✅ Bateria powinna pokryć większość zużycia po zmroku (w typowym dniu).';
+            } else if (state.season === 'winter') {
+                el.battTip.innerHTML = 'Zima: tylko ~' + r.sData.pvHours + ' h produkcji PV dziennie, wiecej zuzycia wieczorami. Bateria <strong>' + formatKwh(r.cap) + '</strong> pokryje ok. <strong>' + Math.round(r.cover) + '%</strong> nocy - reszta dobierana z sieci.';
+                el.battTip.classList.add('warning');
+            } else if (state.season === 'summer' && state.profile === 'working') {
+                el.battTip.innerHTML = 'Lato + praca poza domem = <strong>najlepszy scenariusz dla baterii!</strong> PV produkuje ~' + r.sData.pvHours + ' h, dom pusty - bez baterii tracisz <strong>' + r.wastedPct + '%</strong> energii. Bateria laduje sie w dzien i zasila wieczorem.';
+                el.battTip.classList.add('success');
+            } else if (r.cover >= 80) {
+                el.battTip.innerHTML = 'Bateria <strong>' + formatKwh(r.cap) + '</strong> pokryje ok. <strong>' + Math.round(r.cover) + '%</strong> nocnego zuzycia - wysoka autokonsumpcja!';
                 el.battTip.classList.add('success');
             } else if (r.cover >= 55) {
-                el.battTip.textContent = '💡 Bateria pokryje typowe zużycie wieczorno-nocne, ale przy dużych odbiornikach może zabraknąć energii.';
+                el.battTip.innerHTML = 'Bateria pokryje ok. <strong>' + Math.round(r.cover) + '%</strong> zuzycia wieczorno-nocnego. Przy duzych odbiornikach moze zabraknac energii pod koniec nocy.';
             } else {
-                el.battTip.textContent = '⚠️ Dla tego zużycia warto rozważyć większą baterię (albo zwiększenie mocy PV), jeśli celem jest maksymalna autokonsumpcja.';
+                el.battTip.innerHTML = 'Pokrycie nocne: <strong>' + Math.round(r.cover) + '%</strong>. Rozwaz wieksza baterie lub zmniejszenie nocnych odbiornikow.';
                 el.battTip.classList.add('warning');
             }
         }
     }
-
     function pickStep(value, steps) {
         for (const s of steps) if (value <= s) return s;
         return steps[steps.length - 1];
@@ -2135,6 +2407,20 @@ if (hamburgerBtn && nav && navLinksContainer) {
         if (el.autonomySlider) {
             el.autonomySlider.addEventListener('input', () => {
                 state.autonomyH = toNum(el.autonomySlider.value, state.autonomyH);
+                renderBattery();
+            });
+        }
+
+        if (el.profileSelect) {
+            el.profileSelect.addEventListener('change', () => {
+                state.profile = el.profileSelect.value;
+                renderBattery();
+            });
+        }
+
+        if (el.seasonSelect) {
+            el.seasonSelect.addEventListener('change', () => {
+                state.season = el.seasonSelect.value;
                 renderBattery();
             });
         }

@@ -1443,6 +1443,105 @@ footer {
     border-color: var(--sun);
 }
 
+/* Gwiazdki nocne - canvas */
+.sw-stars-canvas {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 1.5s ease;
+    border-radius: 24px;
+    z-index: 0;
+}
+.solar-widget.is-night .sw-stars-canvas { opacity: 1; }
+
+/* Licznik mocy na zywo */
+.sw-live-power {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.2);
+    border-radius: 12px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    position: relative;
+    z-index: 2;
+}
+.solar-widget.is-night .sw-live-power {
+    background: rgba(59,130,246,0.08);
+    border-color: rgba(59,130,246,0.2);
+}
+.sw-live-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 0 0 rgba(74,222,128,0.6);
+    animation: sw-pulse 2s infinite;
+    flex-shrink: 0;
+}
+.solar-widget.is-night .sw-live-dot {
+    background: #60a5fa;
+    animation: sw-pulse-blue 2s infinite;
+}
+@keyframes sw-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(74,222,128,0.7); }
+    70%  { box-shadow: 0 0 0 8px rgba(74,222,128,0); }
+    100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); }
+}
+@keyframes sw-pulse-blue {
+    0%   { box-shadow: 0 0 0 0 rgba(96,165,250,0.7); }
+    70%  { box-shadow: 0 0 0 8px rgba(96,165,250,0); }
+    100% { box-shadow: 0 0 0 0 rgba(96,165,250,0); }
+}
+.sw-live-label {
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.5);
+    font-family: 'DM Sans', sans-serif;
+}
+.sw-live-val {
+    font-family: 'Sora', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #F59E0B;
+    line-height: 1;
+    min-width: 64px;
+    transition: color 0.4s;
+}
+.solar-widget.is-night .sw-live-val { color: #60a5fa; }
+.sw-live-unit {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.4);
+    align-self: flex-end;
+    padding-bottom: 3px;
+}
+.sw-live-sub {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.3);
+    margin-left: auto;
+}
+@keyframes sw-val-flash {
+    0%   { transform: scale(0.95); opacity: 0.6; }
+    50%  { transform: scale(1.06); opacity: 1; }
+    100% { transform: scale(1);    opacity: 1; }
+}
+.sw-live-val.updated { animation: sw-val-flash 0.5s ease; }
+
+/* Wykres dobowy baterii */
+.me-chart-day-wrap {
+    position: relative;
+    height: 260px;
+    width: 100%;
+}
+#me-chart-day { width: 100%; height: 100%; display: block; }
+@media (max-width: 768px) { .me-chart-day-wrap { height: 180px; } }
+
+/* Mobile padding sekcja magazyn */
+@media (max-width: 600px) {
+    #magazyn-energii { padding-left: 16px; padding-right: 16px; }
+    #magazyn-energii .me-calc-grid { gap: 1.2rem; }
+    #magazyn-energii .me-tab-btn { padding: 7px 12px; font-size: 0.82rem; }
+}
+
 /* Canvas – wykres sinusoidy */
 .sw-canvas-wrap {
     position: relative; height: 110px; margin-bottom: 20px;

@@ -182,6 +182,7 @@
     <!-- HERO -->
 
     <div class="hero">
+        <div id="hero-particles"></div>
         <div class="hero-rays"></div>
         <div class="hero-rays-2"></div>
         <!-- Breezy Weather Sun Effect -->
@@ -231,11 +232,11 @@
                         <div class="stat-label">za prąd do podgrzewania</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-num">~2 lata</div>
+                        <div class="stat-num js-counter" data-target="2" data-prefix="~" data-suffix=" lata">~0</div>
                         <div class="stat-label">zwrot z inwestycji</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-num">25 lat</div>
+                        <div class="stat-num js-counter" data-target="25" data-suffix=" lat">0</div>
                         <div class="stat-label">żywotność paneli</div>
                     </div>
                 </div>
@@ -415,6 +416,18 @@
                             <button id="sw-refresh-btn" class="sw-refresh-btn" type="button"><span class="sw-refresh-icon">↻</span> Odśwież dane</button>
                         </div>
                     </div>
+                    <!-- Gwiazdki nocne -->
+                    <canvas id="sw-stars-canvas" class="sw-stars-canvas"></canvas>
+
+                    <!-- Licznik mocy na zywo -->
+                    <div class="sw-live-power" id="sw-live-power" style="display:none;">
+                        <div class="sw-live-dot"></div>
+                        <span class="sw-live-label">Teraz produkujesz</span>
+                        <span class="sw-live-val" id="sw-live-val">0</span>
+                        <span class="sw-live-unit">W</span>
+                        <span class="sw-live-sub" id="sw-live-sub"></span>
+                    </div>
+
                     <!-- Wykres sinusoidy nasłonecznienia (Canvas) -->
                     <div class="sw-canvas-wrap">
                         <div class="sw-loading" id="sw-loading">
@@ -786,13 +799,29 @@
                 <div class="me-calc-grid">
                     <div class="me-form-col">
                         <h3 class="me-form-title">Parametry zużycia</h3>
-
                         <div class="field">
                             <label>Roczne zużycie energii &nbsp;<span id="me-val-kwh" class="field-val">4 500 kWh</span></label>
                             <input type="range" id="me-sl-kwh" min="2000" max="15000" step="100" value="4500">
                             <p style="font-size:0.75rem;color:var(--ink-muted);margin-top:4px;">Znajdziesz na fakturze za prąd. Przeciętny dom 4-osobowy: 3 500–5 000 kWh/rok.</p>
                         </div>
-
+                        <div class="field">
+                            <label>Profil domowników w ciągu dnia</label>
+                            <select id="me-sel-profile">
+                                <option value="working" selected>Rodzina wychodząca (praca/szkoła 7–16)</option>
+                                <option value="mixed">Tryb mieszany (ktoś bywa w domu)</option>
+                                <option value="home">Zawsze w domu (emeryt, praca zdalna)</option>
+                            </select>
+                            <p id="me-profile-desc" style="font-size:0.75rem;color:var(--ink-muted);margin-top:5px;line-height:1.4;min-height:2.4rem;"></p>
+                        </div>
+                        <div class="field">
+                            <label>Pora roku / tryb obliczeń</label>
+                            <select id="me-sel-season">
+                                <option value="annual" selected>Cały rok (średnia roczna)</option>
+                                <option value="summer">Lato (czerwiec–sierpień)</option>
+                                <option value="spring">Wiosna / Jesień</option>
+                                <option value="winter">Zima (grudzień–luty)</option>
+                            </select>
+                        </div>
                         <div class="field">
                             <label>Główny cel magazynu energii</label>
                             <select id="me-sel-goal">
@@ -800,13 +829,38 @@
                                 <option value="backup">Zasilanie awaryjne (backup)</option>
                             </select>
                         </div>
-
                         <div class="field" id="me-autonomy-wrap" style="display:none;">
                             <label>Czas pracy awaryjnej &nbsp;<span id="me-val-auto" class="field-val">8 h</span></label>
                             <input type="range" id="me-sl-auto" min="1" max="48" step="1" value="8">
                         </div>
+                        <div style="margin-top:14px;">
+                            <div style="font-size:0.75rem;font-weight:600;color:var(--ink-soft);margin-bottom:8px;">Struktura zużycia (szacunkowo):</div>
+                            <div style="margin-bottom:8px;">
+                                <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--ink-muted);margin-bottom:3px;">
+                                    <span>Zużycie po zmroku</span><span id="me-bar-night-lbl" style="font-weight:600;color:var(--ink-soft);">55%</span>
+                                </div>
+                                <div style="height:7px;background:var(--border);border-radius:99px;overflow:hidden;">
+                                    <div id="me-bar-night" style="height:100%;background:#3b82f6;border-radius:99px;transition:width 0.45s ease;width:55%;"></div>
+                                </div>
+                            </div>
+                            <div style="margin-bottom:8px;">
+                                <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--ink-muted);margin-bottom:3px;">
+                                    <span>Energia PV tracona bez baterii</span><span id="me-bar-waste-lbl" style="font-weight:600;color:#ef4444;">75%</span>
+                                </div>
+                                <div style="height:7px;background:var(--border);border-radius:99px;overflow:hidden;">
+                                    <div id="me-bar-waste" style="height:100%;background:#ef4444;border-radius:99px;transition:width 0.45s ease;width:75%;"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--ink-muted);margin-bottom:3px;">
+                                    <span>Pokrycie nocne z baterii</span><span id="me-bar-cover-lbl" style="font-weight:600;color:var(--green);">68%</span>
+                                </div>
+                                <div style="height:7px;background:var(--border);border-radius:99px;overflow:hidden;">
+                                    <div id="me-bar-cover" style="height:100%;background:var(--green);border-radius:99px;transition:width 0.45s ease;width:68%;"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-
                     <div class="me-results-col">
                         <div class="me-cards-grid">
                             <div class="result-card">
@@ -830,12 +884,19 @@
                                 <div style="font-size:0.78rem;color:var(--ink-muted);">energii po zmroku</div>
                             </div>
                         </div>
-                        <div class="me-tip-box" id="me-batt-tip">
-                            Bateria pokryje typowe zużycie wieczorno-nocne.
+                        <div class="me-tip-box" id="me-batt-tip">Bateria pokryje typowe zużycie wieczorno-nocne.</div>
+                        <div style="margin-top:14px;">
+                            <div style="font-size:0.75rem;font-weight:600;color:var(--ink-soft);margin-bottom:6px;">Profil dobowy: produkcja vs. zużycie</div>
+                            <div class="me-chart-day-wrap"><canvas id="me-chart-day"></canvas></div>
+                            <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:0.7rem;color:var(--ink-muted);margin-top:6px;">
+                                <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#F59E0B;display:inline-block;"></span>Produkcja PV</span>
+                                <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#3b82f6;display:inline-block;"></span>Zużycie domu</span>
+                                <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#16a34a;display:inline-block;"></span>Praca baterii</span>
+                            </div>
                         </div>
                         <p style="font-size:0.78rem;color:var(--ink-muted);margin-top:12px;line-height:1.5;">
-                            Typowe systemy: <strong>BYD Battery-Box, Pylontech Force H2, Huawei LUNA2000</strong>. 
-                            Do buforowania nocnego optymalny jest <strong>LFP</strong> (litowo-żelazowo-fosforanowy) — bezpieczny i trwały (3 500+ cykli).
+                            Typowe systemy: <strong>BYD Battery-Box, Pylontech Force H2, Huawei LUNA2000</strong>.
+                            Do buforowania nocnego optymalny jest <strong>LFP</strong> — bezpieczny i trwały (3 500+ cykli).
                         </p>
                     </div>
                 </div>
@@ -1301,4 +1362,3 @@
     <script src="portfolio-logos.js" defer></script>
 </body>
 </html>
-

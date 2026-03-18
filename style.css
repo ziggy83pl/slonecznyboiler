@@ -1242,6 +1242,7 @@ footer {
     /* Pokaż przycisk dzwonienia na mobile/tablet */
     .floating-call-btn { display: flex !important; }
     #back-to-top { bottom: 100px; } /* Przesuń strzałkę wyżej */
+    #bg-dimmer-wrapper { display: none !important; }
 
     .calc-form {
         padding: 28px 20px 92px;
@@ -1339,6 +1340,68 @@ footer {
 }
 #back-to-top.visible { opacity: 1; visibility: visible; transform: translateY(0); }
 #back-to-top:hover { background: var(--sun-deep); transform: translateY(-3px); }
+
+/* ── BACKGROUND DIMMER SLIDER ─────────────────────── */
+#bg-dimmer-wrapper {
+    position: fixed;
+    bottom: 100px;
+    right: 30px; /* Wyrównanie do przycisku back-to-top (right:30px, width:50px) */
+    width: 50px;
+    height: 200px;
+    z-index: 998;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+    background: rgba(28, 25, 23, 0.9); /* Ciemne tło kontrolera */
+    border-radius: 50px;
+    padding: 18px 0;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+}
+#bg-dimmer-wrapper.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+.dimmer-icon {
+    color: rgba(255,255,255,0.5);
+    font-size: 0.9rem;
+}
+#dimmer-label {
+    font-family: 'Sora', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--sun);
+    margin-bottom: 5px;
+}
+#bg-dimmer {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100px; /* Długość suwaka */
+    height: 6px;  /* Grubość linii */
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 100px;
+    outline: none;
+    transform: rotate(-90deg); /* Make it vertical */
+    transform-origin: center;
+    margin: 40px 0; /* Odstęp na obrót */
+    cursor: pointer;
+}
+#bg-dimmer::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--sun);
+    cursor: grab;
+    box-shadow: 0 0 0 3px rgba(28, 25, 23, 0.8);
+    transition: transform 0.1s;
+}
+#bg-dimmer::-webkit-slider-thumb:hover { transform: scale(1.2); }
+}
 
 /* ── COOKIE BANNER ────────────────────────────────── */
 .cookie-banner {
@@ -1529,7 +1592,7 @@ footer {
 /* Wykres dobowy baterii */
 .me-chart-day-wrap {
     position: relative;
-    height: 260px;
+    height: 340px; /* Wyższy wykres dla lepszej czytelności na desktopie */
     width: 100%;
 }
 #me-chart-day { width: 100%; height: 100%; display: block; }
@@ -1540,6 +1603,100 @@ footer {
     #magazyn-energii { padding-left: 16px; padding-right: 16px; }
     #magazyn-energii .me-calc-grid { gap: 1.2rem; }
     #magazyn-energii .me-tab-btn { padding: 7px 12px; font-size: 0.82rem; }
+}
+
+
+/* ── LICZNIK ZAROBKU ─────────────────────────────── */
+.sw-earned-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    background: rgba(245,158,11,0.07);
+    border: 1px solid rgba(245,158,11,0.2);
+    border-radius: 16px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    position: relative;
+    z-index: 2;
+    flex-wrap: wrap;
+}
+.solar-widget.is-night .sw-earned-box {
+    background: rgba(59,130,246,0.07);
+    border-color: rgba(59,130,246,0.18);
+}
+.sw-earned-left { flex: 1; min-width: 160px; }
+.sw-earned-right {
+    flex: 1;
+    min-width: 160px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+}
+.sw-earned-label {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-weight: 600;
+    margin-bottom: 4px;
+    font-family: 'DM Sans', sans-serif;
+}
+.sw-earned-val {
+    font-family: 'Sora', sans-serif;
+    font-size: 2rem;
+    font-weight: 900;
+    color: #F59E0B;
+    line-height: 1;
+    letter-spacing: -0.5px;
+    transition: color 0.4s;
+}
+.solar-widget.is-night .sw-earned-val { color: #60a5fa; }
+.sw-earned-sub {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.35);
+    margin-top: 5px;
+    font-family: 'DM Sans', sans-serif;
+}
+.sw-earned-bar-wrap { width: 100%; }
+.sw-earned-bar-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+.sw-earned-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #F59E0B, #fde047);
+    transition: width 1.2s cubic-bezier(.22,1,.36,1);
+    width: 0%;
+}
+.solar-widget.is-night .sw-earned-bar-fill {
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+.sw-earned-bar-label {
+    font-size: 0.68rem;
+    color: rgba(255,255,255,0.3);
+    text-align: right;
+    font-family: 'DM Sans', sans-serif;
+}
+.sw-earned-today {
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.45);
+    font-family: 'DM Sans', sans-serif;
+}
+.sw-earned-today span {
+    color: #4ade80;
+    font-weight: 700;
+}
+@media (max-width: 600px) {
+    .sw-earned-box { flex-direction: column; gap: 12px; }
+    .sw-earned-right { align-items: flex-start; width: 100%; }
+    .sw-earned-val { font-size: 1.6rem; }
 }
 
 /* Canvas – wykres sinusoidy */
@@ -1946,6 +2103,40 @@ footer {
     /* Stackowanie na mobile */
     .comparison-content { grid-template-columns: 1fr; gap: 32px; }
     .comparison-chart-wrap { max-width: 300px; margin: 0 auto; }
+}
+
+/* ── ROI CHART ────────────────────────────────────── */
+
+/* ── ROI CHART - nowe style ──────────────────────── */
+.roi-summary-cards {
+    display: grid;
+    grid-template-columns: repeat(4,1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+}
+@media (max-width:900px) { .roi-summary-cards { grid-template-columns: 1fr 1fr; } }
+.roi-card {
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 18px;
+    text-align: center;
+}
+.roi-card-green { background: rgba(22,163,74,0.06); border-color: rgba(22,163,74,0.2); }
+.roi-card-label { font-size:0.72rem; color:var(--ink-muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; font-weight:600; }
+.roi-card-val { font-family:'Sora',sans-serif; font-size:1.35rem; font-weight:800; color:var(--ink); line-height:1; margin-bottom:4px; transition:color .3s; }
+.roi-card-sub { font-size:0.7rem; color:var(--ink-muted); }
+.roi-legend { display:flex; flex-direction:column; gap:7px; margin-top:14px; padding:12px 14px; background:var(--cream); border-radius:10px; border:1px solid var(--border); }
+.roi-legend-item { display:flex; align-items:center; gap:8px; font-size:0.78rem; color:var(--ink-soft); }
+.roi-legend-line { width:24px; height:3px; border-radius:99px; flex-shrink:0; }
+.roi-info-box { margin-top:20px; background:rgba(245,158,11,0.07); border-left:3px solid var(--sun); border-radius:0 10px 10px 0; padding:13px 18px; font-size:0.88rem; color:var(--ink-soft); line-height:1.6; }
+.roi-info-box strong { color:var(--ink); }
+
+.roi-wrapper { display:grid; grid-template-columns:300px 1fr; gap:40px; align-items:start; }
+.roi-chart-container { background:var(--white); border:1px solid var(--border); border-radius:20px; padding:24px 20px 16px; height:420px; position:relative; }
+@media (max-width:800px) {
+    .roi-wrapper { grid-template-columns:1fr; gap:20px; }
+    .roi-chart-container { height:320px; }
 }
 
 /* ── ENERGY SOURCE COMPARISON ─────────────────────── */

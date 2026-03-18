@@ -126,6 +126,8 @@
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☀️</text></svg>">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-0373984HNB"></script>
     <script>
     window.dataLayer = window.dataLayer || [];
@@ -258,7 +260,7 @@
                     </div>
                     <div class="savings-row">
                         <div class="savings-row-label">⚡ Cena prądu PGE G11 (2026)</div>
-                        <div class="savings-row-val">1,10 zł/kWh</div>
+                        <div class="savings-row-val" id="hero-price-val">1,10 zł/kWh</div>
                     </div>
                     <div class="savings-total-box">
                         <div class="savings-total-label">Moja roczna oszczędność</div>
@@ -395,7 +397,7 @@
                 <div style="grid-column: 1/-1; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3); border-radius: 14px; padding: 14px 20px; display:flex; align-items:center; gap:14px; margin-bottom: 8px;">
                     <span style="font-size:1.4rem">⚡</span>
                     <div>
-                        <strong style="font-family:'Sora',sans-serif; color:var(--ink); font-size:0.92rem;">Aktualna cena prądu PGE (taryfa G11) w 2026 r.: <span style="color:var(--sun)">1,10 zł/kWh brutto</span></strong>
+                        <strong style="font-family:'Sora',sans-serif; color:var(--ink); font-size:0.92rem;">Aktualna cena prądu PGE (taryfa G11) w 2026 r.: <span style="color:var(--sun)" id="banner-price-val">1,10 zł/kWh brutto</span></strong>
                         <p style="font-size:0.78rem; color:var(--ink-muted); margin:2px 0 0;">
 Źródło: <a href="https://www.ure.gov.pl/pl/urzad/informacje-ogolne/aktualnosci/13002,Prezes-Urzedu-Regulacji-Energetyki-zatwierdzil-taryfy-na-sprzedaz-i-dystrybucje-.html" target="_blank" rel="noopener noreferrer" style="color:var(--sun); text-decoration:none;">Urząd Regulacji Energetyki (URE)</a>, taryfa zatwierdzona 17.12.2025 r., obowiązuje od 01.01.2026 r. Cena obejmuje energię czynną (0,62 zł) + dystrybucję (0,48 zł). Łomża / region PGE Dystrybucja.
                         </p>
@@ -446,6 +448,32 @@
                     </div>
                     
                     <!-- Prognoza 7 dni -->
+                    <!-- LICZNIK ZAROBKU od montażu -->
+                    <div class="sw-earned-box" id="sw-earned-box">
+                        <div class="sw-earned-left">
+                            <div class="sw-earned-label">💰 Zaoszczędziłem od montażu</div>
+                            <div class="sw-earned-val" id="sw-earned-val">0,00 zł</div>
+                            <div class="sw-earned-sub">
+                                <span id="sw-earned-kwh">0,00</span> kWh
+                                &nbsp;·&nbsp;
+                                cena: <span id="sw-earned-price">1,10</span> zł/kWh
+                            </div>
+                        </div>
+                        <div class="sw-earned-right">
+                            <div class="sw-earned-bar-wrap">
+                                <div class="sw-earned-bar-track">
+                                    <div class="sw-earned-bar-fill" id="sw-earned-bar"></div>
+                                </div>
+                                <div class="sw-earned-bar-label">
+                                    <span id="sw-earned-days">0</span> dni pracy systemu
+                                </div>
+                            </div>
+                            <div class="sw-earned-today">
+                                dziś: +<span id="sw-earned-today-val">--</span> zł
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="sw-divider"></div>
                     <div class="sw-forecast-header">
                         <div class="sw-forecast-title">Prognoza (7 dni)</div>
@@ -674,8 +702,8 @@
                         <!-- Prąd -->
                         <div class="energy-bar-item electric">
                             <div class="energy-label"><span class="energy-icon">⚡</span>Prąd z sieci (G11)</div>
-                            <div class="energy-bar-wrap"><div class="energy-bar" style="width: 100%;"></div></div>
-                            <div class="energy-value">1,10 zł</div>
+                            <div class="energy-bar-wrap" id="energy-bar-electric-wrap"><div class="energy-bar" id="energy-bar-electric" style="width: 100%;"></div></div>
+                            <div class="energy-value" id="energy-price-electric">1,10 zł</div>
                         </div>
                     </div>
                     <p class="energy-chart-note">
@@ -773,6 +801,79 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- ROI CHART SECTION -->
+                <div id="roi-section" style="margin-top:60px;padding-top:40px;border-top:1px solid var(--border);">
+                    <div class="section-head">
+                        <div class="section-label">Symulacja Zwrotu</div>
+                        <h2 class="section-title">Kiedy to się zwróci?</h2>
+                        <p class="section-sub">Porównaj inwestycję z lokatą bankową i inflacją cen prądu. Przeciągnij suwaki.</p>
+                    </div>
+                    <div class="roi-summary-cards">
+                        <div class="roi-card">
+                            <div class="roi-card-label">Zwrot inwestycji</div>
+                            <div class="roi-card-val" id="roi-payback-val">~2 lata</div>
+                            <div class="roi-card-sub">break-even</div>
+                        </div>
+                        <div class="roi-card roi-card-green">
+                            <div class="roi-card-label">Zysk po <span id="roi-years-badge">15</span> latach</div>
+                            <div class="roi-card-val" id="roi-total-gain">+24 000 zł</div>
+                            <div class="roi-card-sub">vs grzanie z sieci</div>
+                        </div>
+                        <div class="roi-card">
+                            <div class="roi-card-label">Bojler vs lokata</div>
+                            <div class="roi-card-val" id="roi-vs-deposit">+18 000 zł</div>
+                            <div class="roi-card-sub">na korzyść bojlera</div>
+                        </div>
+                        <div class="roi-card">
+                            <div class="roi-card-label">Stopa zwrotu</div>
+                            <div class="roi-card-val" id="roi-irr">~47%</div>
+                            <div class="roi-card-sub">rok po roku</div>
+                        </div>
+                    </div>
+                    <div class="roi-wrapper">
+                        <div class="roi-controls">
+                            <h3 style="font-family:'Sora',sans-serif;font-size:0.95rem;font-weight:700;margin-bottom:16px;">Dostosuj scenariusz</h3>
+                            <div class="field">
+                                <label>Koszt instalacji: <span id="roi-cost-val" class="field-val">3 500 zł</span></label>
+                                <input type="range" id="roi-cost" min="2000" max="6000" step="100" value="3500">
+                            </div>
+                            <div class="field">
+                                <label>Roczna oszczędność: <span id="roi-saving-val" class="field-val">1 640 zł</span></label>
+                                <input type="range" id="roi-saving" min="500" max="4000" step="50" value="1640">
+                            </div>
+                            <div class="field">
+                                <label>Wzrost cen prądu / rok: <span id="roi-inflation-val" class="field-val" style="color:var(--sun);">8%</span></label>
+                                <input type="range" id="roi-inflation" min="0" max="20" step="0.5" value="8">
+                            </div>
+                            <div class="field">
+                                <label>Oprocentowanie lokaty: <span id="roi-deposit-val" class="field-val">5%</span></label>
+                                <input type="range" id="roi-deposit-rate" min="1" max="10" step="0.5" value="5">
+                            </div>
+                            <div class="field">
+                                <label>Horyzont czasowy: <span id="roi-years-val" class="field-val">15 lat</span></label>
+                                <input type="range" id="roi-years" min="5" max="25" step="1" value="15">
+                            </div>
+                            <div class="roi-legend">
+                                <div class="roi-legend-item"><span class="roi-legend-line" style="background:#16a34a;"></span>Słoneczny Bojler</div>
+                                <div class="roi-legend-item"><span class="roi-legend-line" style="background:#F59E0B;"></span>Lokata bankowa</div>
+                                <div class="roi-legend-item"><span class="roi-legend-line" style="background:#ef4444;"></span>Rosnące koszty prądu</div>
+                            </div>
+                            <button id="btn-export-pdf" class="btn-primary" style="width:100%;margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;">
+                                <i class="fas fa-file-pdf"></i> Pobierz Raport PDF
+                            </button>
+                        </div>
+                        <div class="roi-chart-container">
+                            <canvas id="roiChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="roi-info-box">
+                        Inwestycja zwraca się po <strong id="roi-info-payback">2 latach</strong>.
+                        Po <strong id="roi-info-years">15 latach</strong> zaoszczędzisz
+                        <strong id="roi-info-total">24 000 zł</strong> więcej niż lokata bankowa.
+                    </div>
+                </div>
+
             </div>
         </div>
     </section>
@@ -885,20 +986,27 @@
                             </div>
                         </div>
                         <div class="me-tip-box" id="me-batt-tip">Bateria pokryje typowe zużycie wieczorno-nocne.</div>
-                        <div style="margin-top:14px;">
-                            <div style="font-size:0.75rem;font-weight:600;color:var(--ink-soft);margin-bottom:6px;">Profil dobowy: produkcja vs. zużycie</div>
-                            <div class="me-chart-day-wrap"><canvas id="me-chart-day"></canvas></div>
-                            <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:0.7rem;color:var(--ink-muted);margin-top:6px;">
-                                <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#F59E0B;display:inline-block;"></span>Produkcja PV</span>
-                                <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#3b82f6;display:inline-block;"></span>Zużycie domu</span>
-                                <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#16a34a;display:inline-block;"></span>Praca baterii</span>
-                            </div>
-                        </div>
-                        <p style="font-size:0.78rem;color:var(--ink-muted);margin-top:12px;line-height:1.5;">
-                            Typowe systemy: <strong>BYD Battery-Box, Pylontech Force H2, Huawei LUNA2000</strong>.
-                            Do buforowania nocnego optymalny jest <strong>LFP</strong> — bezpieczny i trwały (3 500+ cykli).
-                        </p>
                     </div>
+                </div>
+
+                <!-- Wykres dobowy - Pełna szerokość -->
+                <div style="margin-top:32px; padding-top:24px; border-top:1px solid var(--border);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+                        <h4 style="font-family:'Sora',sans-serif; font-size:1rem; color:var(--ink);">Symulacja pracy magazynu (doba)</h4>
+                        <div style="display:flex; gap:16px; font-size:0.8rem; color:var(--ink-soft);">
+                            <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:3px;background:#F59E0B;"></span>PV</span>
+                            <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:3px;background:#3b82f6;"></span>Zużycie</span>
+                            <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:3px;background:#16a34a;"></span>Bateria</span>
+                        </div>
+                    </div>
+                    
+                    <div class="me-chart-day-wrap">
+                        <canvas id="me-chart-day"></canvas>
+                    </div>
+                    <p style="font-size:0.78rem;color:var(--ink-muted);margin-top:16px;line-height:1.5;text-align:center;max-width:800px;margin-left:auto;margin-right:auto;">
+                        Typowe systemy: <strong>BYD Battery-Box, Pylontech Force H2, Huawei LUNA2000</strong>.
+                        Do buforowania nocnego optymalny jest <strong>LFP</strong> (litowo-żelazowo-fosforanowy) — bezpieczny i trwały (3 500+ cykli).
+                    </p>
                 </div>
             </div>
 
@@ -1104,7 +1212,7 @@
             <div class="section-head">
                 <div class="section-label">Czysta matematyka</div>
                 <h2 class="section-title">Porównanie kosztów<br>w skali 10 lat</h2>
-                <p class="section-sub">Symulacja dla 4-osobowej rodziny (bojler 180L). Zakładamy stałą cenę prądu 1,10 zł/kWh (w rzeczywistości ceny rosną, więc oszczędność będzie jeszcze większa).</p>
+                <p class="section-sub">Symulacja dla 4-osobowej rodziny (bojler 180L). Zakładamy stałą cenę prądu <span id="cmp-subtitle-price">1,10 zł/kWh</span> (w rzeczywistości ceny rosną, więc oszczędność będzie jeszcze większa).</p>
             </div>
             
             <div class="comparison-wrapper">
@@ -1126,25 +1234,25 @@
                                 </tr>
                                 <tr>
                                     <td>Roczny koszt energii</td>
-                                    <td>~3 000 zł</td>
-                                    <td class="highlight">~1 400 zł <span class="note">(tylko zimowe dogrzewanie)</span></td>
+                                    <td id="cmp-annual-network">~3 000 zł</td>
+                                    <td class="highlight"><span id="cmp-annual-solar">~1 400 zł</span> <span class="note">(tylko zimowe dogrzewanie)</span></td>
                                 </tr>
                                 <tr>
                                     <td><strong>Koszt po 5 latach</strong></td>
-                                    <td>15 000 zł</td>
-                                    <td class="highlight">10 500 zł</td>
+                                    <td id="cmp-5yr-network">15 000 zł</td>
+                                    <td class="highlight" id="cmp-5yr-solar">10 500 zł</td>
                                 </tr>
                                 <tr>
                                     <td><strong>Koszt po 10 latach</strong></td>
-                                    <td>30 000 zł</td>
-                                    <td class="highlight">17 500 zł</td>
+                                    <td id="cmp-10yr-network">30 000 zł</td>
+                                    <td class="highlight" id="cmp-10yr-solar">17 500 zł</td>
                                 </tr>
                             </tbody>
                             <tfoot>
                                 <tr>
                                     <td>Wynik po 10 latach</td>
-                                    <td>Strata: -30 000 zł</td>
-                                    <td class="highlight-profit">Zyskasz: +12 500 zł*</td>
+                                    <td id="cmp-result-network">Strata: -30 000 zł</td>
+                                    <td class="highlight-profit" id="cmp-result-solar">Zyskasz: +12 500 zł*</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -1155,13 +1263,13 @@
                         <h3 class="chart-title">Koszt całkowity po 10 latach</h3>
                         <div class="cost-chart">
                             <div class="chart-col">
-                                <div class="chart-val">30 000 zł</div>
+                                <div class="chart-val" id="cmp-chart-network-val">30 000 zł</div>
                                 <div class="chart-bar bar-network"></div>
                                 <div class="chart-label">Prąd z sieci</div>
                             </div>
                             <div class="chart-col">
-                                <div class="chart-val highlight">17 500 zł</div>
-                                <div class="chart-bar bar-solar"><span class="bar-badge">Oszczędzasz!</span></div>
+                                <div class="chart-val highlight" id="cmp-chart-solar-val">17 500 zł</div>
+                                <div class="chart-bar bar-solar" id="cmp-chart-bar-solar"><span class="bar-badge" id="cmp-chart-badge">Oszczędzasz!</span></div>
                                 <div class="chart-label">Słoneczny Bojler</div>
                             </div>
                         </div>
@@ -1349,6 +1457,13 @@
             Zainstaluj Aplikację
         </button>
     </footer>
+
+    <div id="bg-dimmer-wrapper" title="Tryb czytania (przyciemnij tło)">
+        <div class="dimmer-icon"><i class="fas fa-moon"></i></div>
+        <div id="dimmer-label">0%</div>
+        <input type="range" id="bg-dimmer" min="0" max="100" value="0" step="1">
+        <div class="dimmer-icon"><i class="fas fa-sun"></i></div>
+    </div>
 
     <button id="back-to-top" title="Wróć na górę">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>

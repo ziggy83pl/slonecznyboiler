@@ -53,7 +53,7 @@ function getTemperatureEfficiencyFactor(ambientTempC, radiationWm2) {
  * @param {number} duration Animation duration in ms.
  * @param {object} options Formatting options {prefix, suffix, decimals}.
  */
-function animateValue(element, start, end, duration, { prefix = '', suffix = '', decimals = 0 } = {}) {
+function animateValue(element, start, end, duration, { prefix = '', suffix = '', decimals = 0, formatter = null } = {}) {
     if (!element) return;
     if (element.animationFrameId) cancelAnimationFrame(element.animationFrameId);
 
@@ -63,10 +63,15 @@ function animateValue(element, start, end, duration, { prefix = '', suffix = '',
         const progress = Math.min((timestamp - startTimestamp) / duration, 1);
         const ease = 1 - Math.pow(1 - progress, 3); // easeOutCubic
         const currentValue = start + (end - start) * ease;
-        element.textContent = `${prefix}${currentValue.toFixed(decimals)}${suffix}`;
+        
+        const valStr = formatter ? formatter(currentValue) : currentValue.toFixed(decimals);
+        element.textContent = `${prefix}${valStr}${suffix}`;
 
         if (progress < 1) element.animationFrameId = requestAnimationFrame(step);
-        else element.textContent = `${prefix}${end.toFixed(decimals)}${suffix}`;
+        else {
+            const endStr = formatter ? formatter(end) : end.toFixed(decimals);
+            element.textContent = `${prefix}${endStr}${suffix}`;
+        }
     };
     element.animationFrameId = requestAnimationFrame(step);
 }
@@ -382,9 +387,14 @@ function calcUpdate() {
     
     const energyBarElec = document.getElementById('energy-bar-electric');
     if (energyBarElec) {
-        // Skalowanie paska: zakładamy że 1.20 zł to ok. 80-90% szerokości
-        const widthPct = Math.min(100, (price / 1.40) * 100);
+        // Skalowanie paska: 1.50 zł = 100% (zwiększona skala bo ceny surowców mogą być wysokie)
+        const widthPct = Math.min(100, (price / 1.50) * 100);
         energyBarElec.style.width = widthPct + '%';
+        
+        // Tooltip GJ (1 GJ = 277.78 kWh)
+        const costGj = price * 277.78;
+        const tip = `Koszt: ${costGj.toFixed(2)} zł / GJ`;
+        if(energyBarElec.parentElement) energyBarElec.parentElement.setAttribute('data-tooltip', tip);
     }
 
     // 5. Tabela Porównawcza (Symulacja 10 lat)
@@ -2184,6 +2194,107 @@ function initHeroParticles() {
 }
 initHeroParticles();
 
+// ── IDEA POPOVER (Zgłoś pomysł) ────────────────────
+const ideaBtn = document.getElementById('btn-idea');
+const ideaPopover = document.getElementById('idea-popover');
+const ideaClose = document.getElementById('idea-close');
+const ideaForm = document.getElementById('idea-form');
+
+if (ideaBtn && ideaPopover && ideaClose) {
+    const togglePopover = () => {
+        ideaPopover.classList.toggle('open');
+    };
+    const closePopover = () => {
+        ideaPopover.classList.remove('open');
+    };
+
+    ideaBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Zapobiega natychmiastowemu zamknięciu przez document click
+        togglePopover();
+    });
+    ideaClose.addEventListener('click', closePopover);
+    
+    // Zamknij po kliknięciu poza formularz
+    document.addEventListener('click', (e) => {
+        if (ideaPopover.classList.contains('open') && !ideaPopover.contains(e.target) && e.target !== ideaBtn) {
+            closePopover();
+        }
+    });
+
+    if (ideaForm) {
+        ideaForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const textarea = ideaForm.querySelector('textarea');
+            const text = textarea.value.trim();
+            if (!text) return;
+
+            // Generuj prosty hash tekstu, aby wykryć duplikaty
+            const hash = Array.from(text).reduce((acc, char) => (acc << 5) - acc + char.charCodeAt(0) | 0, 0);
+            
+            // Sprawdź LocalStorage
+            const storageKey = 'sloneczny_ideas_sent';
+            let sentHashes = [];
+            try { sentHashes = JSON.parse(localStorage.getItem(storageKey)) || []; } catch(err){}
+
+            if (sentHashes.includes(hash)) {
+                alert('Ten pomysł już nam zgłosiłeś/aś. Dziękujemy za zaangażowanie!');
+                textarea.value = '';
+                closePopover();
+                return;
+            }
+
+            // Pokaż status wysyłania
+            const btn = ideaForm.querySelector('button[type="submit"]');
+            const originalText = btn.textContent;
+            btn.textContent = 'Wysyłanie...';
+            btn.disabled = true;
+
+            const nameInput = ideaForm.querySelector('input[type="text"]');
+            const emailInput = ideaForm.querySelector('input[type="email"]');
+
+            fetch("https://formsubmit.co/ajax/zbyszekszczesny83@gmail.com", {
+                method: "POST",
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({
+                    _subject: "💡 Słoneczny Bojler - Zgłoszony Pomysł",
+                    message: text,
+                    name: nameInput ? (nameInput.value || "Anonim") : "Anonim",
+                    email: emailInput ? (emailInput.value || "") : "",
+                    _autoresponse: "Dziękujemy za Twój pomysł! Przeanalizujemy go."
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Zapisz hash jako wysłany dopiero po sukcesie
+                    sentHashes.push(hash);
+                    localStorage.setItem(storageKey, JSON.stringify(sentHashes));
+
+                    btn.textContent = '✨ Wysłano! Dziękujemy';
+                    btn.style.background = '#16a34a'; // Zielony kolor sukcesu
+
+                    setTimeout(() => {
+                        closePopover();
+                        setTimeout(() => {
+                            ideaForm.reset();
+                            btn.textContent = originalText;
+                            btn.style.background = '';
+                            btn.disabled = false;
+                        }, 500);
+                    }, 1500);
+                } else {
+                    throw new Error('Błąd wysyłki');
+                }
+            })
+            .catch(error => {
+                alert('Wystąpił błąd podczas wysyłania. Spróbuj później.');
+                btn.textContent = originalText;
+                btn.disabled = false;
+            });
+        });
+    }
+}
+
 // ── ROI CHART & PDF EXPORT ─────────────────────────
 let roiChartInstance = null;
 
@@ -2191,45 +2302,73 @@ function initROIChart() {
     const ctx = document.getElementById('roiChart');
     if (!ctx) return;
 
-    const inflationInput = document.getElementById('roi-inflation');
-    const yearsInput = document.getElementById('roi-years');
-    const inflationVal = document.getElementById('roi-inflation-val');
-    const yearsVal = document.getElementById('roi-years-val');
+    // Elementy wejściowe (suwaki)
+    const inputs = {
+        cost: document.getElementById('roi-cost'),
+        saving: document.getElementById('roi-saving'),
+        inflation: document.getElementById('roi-inflation'),
+        deposit: document.getElementById('roi-deposit-rate'),
+        years: document.getElementById('roi-years')
+    };
 
-    // Domyślny koszt inwestycji (można powiązać z kalkulatorem)
-    const investmentCost = 3500; 
-    const depositRate = 0.05; // 5% na lokacie
+    // Jeśli brak kluczowych elementów, przerwij
+    if (!inputs.cost || !inputs.saving || !inputs.years) return;
+
+    // Elementy wyświetlające wartości suwaków
+    const displays = {
+        cost: document.getElementById('roi-cost-val'),
+        saving: document.getElementById('roi-saving-val'),
+        inflation: document.getElementById('roi-inflation-val'),
+        deposit: document.getElementById('roi-deposit-val'),
+        years: document.getElementById('roi-years-val')
+    };
+
+    // Karty podsumowania i info box
+    const summary = {
+        payback: document.getElementById('roi-payback-val'),
+        gain: document.getElementById('roi-total-gain'),
+        gainBadge: document.getElementById('roi-years-badge'),
+        vsDeposit: document.getElementById('roi-vs-deposit'),
+        irr: document.getElementById('roi-irr'),
+        infoPayback: document.getElementById('roi-info-payback'),
+        infoYears: document.getElementById('roi-info-years'),
+        infoTotal: document.getElementById('roi-info-total')
+    };
+
+    // Domyślne wartości do resetu
+    const defaults = {
+        cost: 3500,
+        saving: 1640,
+        inflation: 8,
+        deposit: 5,
+        years: 15
+    };
+
+    let currentPaybackYear = null;
+    let previousTotalGain = 0; // Przechowuje poprzednią wartość dla animacji
 
     function updateChart() {
-        const years = parseInt(yearsInput.value);
-        const inflation = parseFloat(inflationInput.value) / 100;
-        
-        // Pobierz roczny koszt energii z głównego kalkulatora (jeśli dostępny)
-        let annualEnergyCost = 3000; // Fallback
-        const calcCostEl = document.getElementById('result-cost');
-        if (calcCostEl) {
-            const val = parseFloat(calcCostEl.textContent.replace(/[^\d.-]/g, ''));
-            if (val > 0) annualEnergyCost = val;
-        }
-        
-        // Pobierz roczną oszczędność
-        let annualSaving = 1400; // Fallback
-        const calcSavingEl = document.getElementById('result-saving');
-        if (calcSavingEl) {
-            const val = parseFloat(calcSavingEl.textContent.replace(/[^\d.-]/g, ''));
-            if (val > 0) annualSaving = val;
-        }
+        const cost = parseFloat(inputs.cost.value);
+        const saving = parseFloat(inputs.saving.value);
+        const inflation = parseFloat(inputs.inflation.value) / 100;
+        const deposit = parseFloat(inputs.deposit.value) / 100;
+        const years = parseInt(inputs.years.value);
 
-        inflationVal.textContent = (inflation * 100).toFixed(1) + '%';
-        yearsVal.textContent = years + ' lat';
+        // Aktualizacja wyświetlanych wartości
+        if(displays.cost) displays.cost.textContent = cost.toLocaleString('pl-PL') + ' zł';
+        if(displays.saving) displays.saving.textContent = saving.toLocaleString('pl-PL') + ' zł';
+        if(displays.inflation) displays.inflation.textContent = (inflation * 100).toFixed(1) + '%';
+        if(displays.deposit) displays.deposit.textContent = (deposit * 100).toFixed(1) + '%';
+        if(displays.years) displays.years.textContent = years + ' lat';
+        if(summary.gainBadge) summary.gainBadge.textContent = years;
+        if(summary.infoYears) summary.infoYears.textContent = years + ' latach';
 
         const labels = Array.from({length: years + 1}, (_, i) => i); // Lata 0..N
         
         // 1. Skumulowany zysk z instalacji (Oszczędności - Inwestycja)
         // Rok 0: -3500 zł
         // Rok 1: -3500 + Oszczędność (z uwzgl. wzrostu cen prądu)
-        const dataSolar = [ -investmentCost ];
-        let currentSaving = 0;
+        const dataSolar = [ -cost ];
         
         // 2. Alternatywa: Lokata (Gdybyś nie kupił bojlera, tylko wpłacił 3500 na lokatę)
         // Rok 0: 0 (punkt odniesienia - masz gotówkę)
@@ -2238,22 +2377,54 @@ function initROIChart() {
         // Lokata to zysk z odsetek od kwoty inwestycji.
         const dataDeposit = [ 0 ];
         
-        let accumulatedSolar = -investmentCost;
-        let accumulatedDeposit = 0;
-        let depositCapital = investmentCost;
+        let cumSolar = -cost;
+        let cumDeposit = 0;
+        let depositCapital = cost;
+        let paybackYear = null;
 
         for (let i = 1; i <= years; i++) {
             // Wzrost ceny prądu zwiększa oszczędność w kolejnym roku
-            const yearSaving = annualSaving * Math.pow(1 + inflation, i - 1);
-            accumulatedSolar += yearSaving;
-            dataSolar.push(accumulatedSolar);
+            const currentSaving = saving * Math.pow(1 + inflation, i - 1);
+            const prevSolar = cumSolar;
+            cumSolar += currentSaving;
+            dataSolar.push(cumSolar);
+
+            // Obliczanie roku zwrotu (interpolacja)
+            if (prevSolar < 0 && cumSolar >= 0 && paybackYear === null) {
+                const fraction = -prevSolar / (cumSolar - prevSolar);
+                paybackYear = (i - 1) + fraction;
+            }
 
             // Lokata (procent składany)
-            const interest = depositCapital * depositRate;
-            depositCapital += interest;
-            accumulatedDeposit += interest; // Zysk to same odsetki (kapitał mieliśmy na starcie)
-            dataDeposit.push(accumulatedDeposit);
+            const interestCalc = depositCapital * deposit;
+            depositCapital += interestCalc;
+            cumDeposit += interestCalc;
+            dataDeposit.push(cumDeposit);
         }
+        currentPaybackYear = paybackYear;
+
+        // Aktualizacja kart podsumowania
+        const pbText = paybackYear !== null ? paybackYear.toFixed(1) + ' lata' : '> ' + years + ' lat';
+        if(summary.payback) summary.payback.textContent = pbText;
+        if(summary.infoPayback) summary.infoPayback.textContent = pbText;
+
+        if(summary.gain) {
+            animateValue(summary.gain, previousTotalGain, cumSolar, 800, {
+                prefix: cumSolar > 0 ? '+' : '',
+                suffix: ' zł',
+                formatter: (n) => Math.round(n).toLocaleString('pl-PL').replace(/\u00A0/g, ' ')
+            });
+        }
+        previousTotalGain = cumSolar;
+
+        const diff = cumSolar - cumDeposit;
+        const diffText = (diff > 0 ? '+' : '') + Math.round(diff).toLocaleString('pl-PL') + ' zł';
+        if(summary.vsDeposit) summary.vsDeposit.textContent = diffText;
+        if(summary.infoTotal) summary.infoTotal.textContent = Math.round(Math.abs(diff)).toLocaleString('pl-PL') + ' zł';
+
+        // Uproszczone ROI (roczna stopa zwrotu w 1. roku)
+        const simpleRoi = (saving / cost) * 100;
+        if(summary.irr) summary.irr.textContent = '~' + simpleRoi.toFixed(1) + '%';
 
         if (roiChartInstance) {
             roiChartInstance.data.labels = labels;
@@ -2273,7 +2444,9 @@ function initROIChart() {
                             backgroundColor: 'rgba(22, 163, 74, 0.1)',
                             borderWidth: 3,
                             tension: 0.3,
-                            fill: true
+                            fill: true,
+                            pointRadius: 0,
+                            pointHoverRadius: 6
                         },
                         {
                             label: 'Lokata bankowa 5% (Zysk)',
@@ -2282,10 +2455,48 @@ function initROIChart() {
                             backgroundColor: 'transparent',
                             borderWidth: 2,
                             borderDash: [5, 5],
-                            tension: 0.3
+                            tension: 0.3,
+                            pointRadius: 0,
+                            pointHoverRadius: 6
                         }
                     ]
                 },
+                plugins: [{
+                    id: 'breakEvenLine',
+                    afterDraw: (chart) => {
+                        if (currentPaybackYear === null) return;
+                        const ctx = chart.ctx;
+                        const xAxis = chart.scales.x;
+                        const yAxis = chart.scales.y;
+                        
+                        // Interpolacja pozycji X dla dokładnego roku (np. 2.4)
+                        const idx = Math.floor(currentPaybackYear);
+                        const dec = currentPaybackYear - idx;
+                        const x1 = xAxis.getPixelForValue(idx);
+                        const x2 = xAxis.getPixelForValue(idx + 1);
+                        // Zabezpieczenie na wypadek końca wykresu
+                        const x = x1 + (x2 ? (x2 - x1) * dec : 0);
+
+                        if (x < xAxis.left || x > xAxis.right) return;
+
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.moveTo(x, yAxis.top);
+                        ctx.lineTo(x, yAxis.bottom);
+                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = '#16a34a'; // Green
+                        ctx.setLineDash([6, 4]); // Przerywana linia
+                        ctx.stroke();
+                        
+                        // Etykieta przy linii
+                        ctx.fillStyle = '#16a34a';
+                        ctx.textAlign = 'right';
+                        ctx.font = 'bold 11px sans-serif';
+                        ctx.fillText('ZWROT', x - 6, yAxis.top + 20);
+                        ctx.fillText(currentPaybackYear.toFixed(1) + ' lat', x - 6, yAxis.top + 34);
+                        ctx.restore();
+                    }
+                }],
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -2300,13 +2511,12 @@ function initROIChart() {
                     },
                     scales: {
                         y: {
-                            beginAtZero: false,
                             grid: { color: 'rgba(0,0,0,0.05)' },
-                            ticks: { callback: (val) => val + ' zł' }
+                            ticks: { callback: (val) => val.toLocaleString() + ' zł' }
                         },
                         x: {
                             grid: { display: false },
-                            title: { display: true, text: 'Lata użytkowania' }
+                            title: { display: true, text: 'Lata' }
                         }
                     }
                 }
@@ -2314,15 +2524,23 @@ function initROIChart() {
         }
     }
 
-    inflationInput.addEventListener('input', updateChart);
-    yearsInput.addEventListener('input', updateChart);
-    // Nasłuchuj zmian w głównym kalkulatorze, aby odświeżyć wykres
-    document.body.addEventListener('input', (e) => {
-        if (e.target.closest('.calc-form')) {
-            // Małe opóźnienie, by calcUpdate zdążył przeliczyć
-            setTimeout(updateChart, 100);
-        }
+    // Podłącz zdarzenia do wszystkich suwaków
+    Object.values(inputs).forEach(el => {
+        if(el) el.addEventListener('input', updateChart);
     });
+
+    // Obsługa przycisku reset ROI
+    const resetBtn = document.getElementById('btn-reset-roi');
+    if(resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            if(inputs.cost) inputs.cost.value = defaults.cost;
+            if(inputs.saving) inputs.saving.value = defaults.saving;
+            if(inputs.inflation) inputs.inflation.value = defaults.inflation;
+            if(inputs.deposit) inputs.deposit.value = defaults.deposit;
+            if(inputs.years) inputs.years.value = defaults.years;
+            updateChart(); // Przelicz wykres
+        });
+    }
 
     // Start
     updateChart();
@@ -2332,6 +2550,75 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initROIChart);
 } else {
     initROIChart();
+}
+
+// ── COMMODITY PRICES (Paliwa) ──────────────────────
+function updateCommodityPrices() {
+    // Parametry energetyczne paliw (kaloryczność * sprawność kotła)
+    const config = {
+        wood:   { kwh: 1450, eff: 0.70, def: 400 }, // def = cena domyślna
+        coal:   { kwh: 7000, eff: 0.80, def: 1600 },
+        gas:    { kwh: 10.5, eff: 0.95, def: 3.80 },
+        pellet: { kwh: 4900, eff: 0.85, def: 1400 }
+    };
+
+    const updateRow = (type) => {
+        const row = document.getElementById(`row-${type}`);
+        const input = document.getElementById(`input-${type}`);
+        if(!row || !input) return;
+        
+        const price = parseFloat(input.value) || 0;
+        const data = config[type];
+        
+        // Koszt 1 kWh ciepła = Cena / (Energia * Sprawność)
+        const costPerKwh = price / (data.kwh * data.eff);
+        const costGj = costPerKwh * 277.78;
+
+        // Aktualizacja DOM
+        const valEl = row.querySelector('.energy-value');
+        const barEl = row.querySelector('.energy-bar');
+        
+        if(valEl) valEl.textContent = `~${costPerKwh.toFixed(2)} zł`;
+        
+        // Skalowanie paska (względem max ceny ok 1.50 zł)
+        if(barEl) {
+            const pct = Math.min(100, (costPerKwh / 1.50) * 100);
+            barEl.style.width = `${pct}%`;
+            
+            const tip = `Koszt: ${costGj.toFixed(2)} zł / GJ`;
+            if(barEl.parentElement) barEl.parentElement.setAttribute('data-tooltip', tip);
+        }
+    };
+
+    ['wood', 'coal', 'gas', 'pellet'].forEach(type => {
+        const input = document.getElementById(`input-${type}`);
+        if(input) {
+            input.addEventListener('input', () => updateRow(type));
+            // Oblicz na starcie
+            updateRow(type);
+        }
+    });
+
+    // Obsługa przycisku reset
+    const resetBtn = document.getElementById('btn-reset-fuel');
+    if(resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            ['wood', 'coal', 'gas', 'pellet'].forEach(type => {
+                const input = document.getElementById(`input-${type}`);
+                if(input) {
+                    input.value = config[type].def;
+                    updateRow(type); // Przelicz od nowa
+                }
+            });
+        });
+    }
+}
+
+// Uruchom aktualizację cen przy starcie
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', updateCommodityPrices);
+} else {
+    updateCommodityPrices();
 }
 
 // PDF EXPORT
@@ -2438,6 +2725,7 @@ if (hamburgerBtn && nav && navLinksContainer) {
         // Battery
         kwhSlider: document.getElementById('me-sl-kwh'),
         kwhOut: document.getElementById('me-val-kwh'),
+        hpCheck: document.getElementById('me-check-hp'), // Checkbox pompy ciepła
         goalSelect: document.getElementById('me-sel-goal'),
         autonomyWrap: document.getElementById('me-autonomy-wrap'),
         autonomySlider: document.getElementById('me-sl-auto'),
@@ -2479,6 +2767,7 @@ if (hamburgerBtn && nav && navLinksContainer) {
 
     const state = {
         annualKwh: toNum(el.kwhSlider?.value, 4500),
+        heatPump: el.hpCheck?.checked || false,
         goal: el.goalSelect?.value || 'auto',
         autonomyH: toNum(el.autonomySlider?.value, 8),
         profile: el.profileSelect?.value || 'working',
@@ -2542,7 +2831,15 @@ if (hamburgerBtn && nav && navLinksContainer) {
     };
 
     function calcBattery() {
-        const dailyAvg = state.annualKwh / 365;
+        let dailyAvg = state.annualKwh / 365;
+        
+        // Korekta dla pompy ciepła (nierównomierny rozkład roczny)
+        if (state.heatPump) {
+            if (state.season === 'winter') dailyAvg *= 2.4; // Zimą zużycie znacznie wyższe niż średnia
+            else if (state.season === 'spring') dailyAvg *= 1.1;
+            else if (state.season === 'summer') dailyAvg *= 0.5; // Latem tylko CWU + chłodzenie (mniej niż średnia roczna z ogrzewaniem)
+        }
+
         const pData = PROFILE_DATA[state.profile] || PROFILE_DATA.working;
         const sData = SEASON_DATA[state.season]   || SEASON_DATA.annual;
 
@@ -2942,6 +3239,13 @@ if (hamburgerBtn && nav && navLinksContainer) {
                 state.annualKwh = toNum(el.kwhSlider.value, state.annualKwh);
                 renderBattery();
                 renderPv();
+            });
+        }
+
+        if (el.hpCheck) {
+            el.hpCheck.addEventListener('change', () => {
+                state.heatPump = el.hpCheck.checked;
+                renderBattery();
             });
         }
 

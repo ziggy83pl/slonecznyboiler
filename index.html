@@ -171,6 +171,22 @@
                 <li><a href="#magazyn-energii">Magazyn energii</a></li>
                 <li><a href="blog.html">Blog</a></li>
                 <li><a href="#obszar">Obszar</a></li>
+                <li class="idea-wrapper">
+                    <button type="button" id="btn-idea" class="btn-idea">💡 Zgłoś pomysł</button>
+                    <!-- Popover form -->
+                    <div id="idea-popover" class="idea-popover">
+                        <div class="idea-header">
+                            <h3>Zgłoś pomysł</h3>
+                            <button id="idea-close" type="button"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg></button>
+                        </div>
+                        <p class="idea-text">Chcemy, aby nasz serwis spełniał oczekiwania Twoje i innych Twórców. Jeśli masz pomysł na ulepszenie, napisz nam o tym.</p>
+                        <form id="idea-form">
+                            <textarea placeholder="Opisz zmianę, jakiej oczekujesz" rows="3" required></textarea>
+                            <div class="idea-row"><input type="text" placeholder="Imię"><input type="email" placeholder="E-mail (opcjonalnie)"></div>
+                            <button type="submit" class="btn-idea-submit">Wyślij</button>
+                        </form>
+                    </div>
+                </li>
                 <li><a href="#kontakt" class="btn-nav">Darmowa wycena</a></li>
             </ul>
             <button id="hamburger-btn" class="hamburger" type="button" aria-label="Otwórz menu">
@@ -270,121 +286,7 @@
             </div>
         </div>
     </div>
-
-    <!-- BENEFITS -->
-    <section id="zalety">
-        <div class="section-inner fade-in-section">
-            <div class="section-head">
-                <div class="section-label">Dlaczego warto</div>
-                <h2 class="section-title">Inwestycja, która<br>zarabia na siebie.</h2>
-                <p class="section-sub">Dlaczego to się opłaca? Bo to czysta matematyka. Jednorazowy koszt montażu zwraca się błyskawicznie, a przez kolejne dekady masz darmowe źródło energii.</p>
-            </div>
-            <div class="benefits-grid">
-                <div class="benefit-card">
-                    <span class="benefit-icon">💰</span>
-                    <h3>Darmowa woda przez pół roku</h3>
-                    <p>Słońce nie wystawia faktur. Od marca do października Twój bojler nagrzewa się "za darmo". Płacisz raz za sprzęt, a korzystasz z darmowej energii przez 25 lat żywotności paneli.</p>
-                </div>
-                <div class="benefit-card">
-                    <span class="benefit-icon">📋</span>
-                    <h3>Bez formalności</h3>
-                    <p>System off-grid nie jest podłączony do sieci — nie wymaga zgłoszenia do zakładu energetycznego, zmiany taryfy ani wymiany licznika.</p>
-                </div>
-                <div class="benefit-card">
-                    <span class="benefit-icon">🔧</span>
-                    <h3>Prosta instalacja</h3>
-                    <p>Kilka paneli PV, falownik MPPT i podłączenie do istniejącej grzałki. Montaż w jeden dzień — bez naruszania instalacji elektrycznej.</p>
-                </div>
-                <div class="benefit-card">
-                    <span class="benefit-icon">📈</span>
-                    <h3>Błyskawiczny zwrot kosztów</h3>
-                    <p>To inwestycja, nie wydatek. Przy obecnych cenach prądu (ponad 1 zł/kWh) system zwraca się w ok. 2 lata. Potem generuje dla Ciebie czysty zysk, chroniąc domowy budżet.</p>
-                </div>
-                <div class="benefit-card">
-                    <span class="benefit-icon">🏠</span>
-                    <h3>Wzrost wartości nieruchomości</h3>
-                    <p>System fotowoltaiczny to dziś standard, który realnie podnosi wartość domu przy ewentualnej sprzedaży.</p>
-                </div>
-                <div class="benefit-card">
-                    <span class="benefit-icon">🌱</span>
-                    <h3>Ekologia bez kompromisów</h3>
-                    <p>Zmniejszasz ślad węglowy i zużycie prądu z sieci, korzystając z czystej energii słonecznej.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- HOW IT WORKS -->
-    <section id="jak-to-dziala">
-        <div class="section-inner fade-in-section">
-            <div class="section-head">
-                <div class="section-label" style="color: rgba(245,158,11,0.7)">Zasada działania</div>
-                <h2 class="section-title">Jak to działa?</h2>
-                <p class="section-sub">Cztery proste kroki od instalacji do darmowej ciepłej wody.</p>
-            </div>
-            <div class="steps-grid">
-                <div class="step-card">
-                    <div class="step-num">1</div>
-                    <h4>Panele PV na dachu</h4>
-                    <p>Od 4+ panele fotowoltaiczne montujemy na dachu lub na gruncie. Optymalnie skierowane na południe.</p>
-                </div>
-                <div class="step-card">
-                    <div class="step-num">2</div>
-                    <h4>Falownik MPPT</h4>
-                    <p>Specjalny falownik przetwarza prąd z paneli na parametry odpowiednie dla grzałki bojlera.</p>
-                </div>
-                <div class="step-card">
-                    <div class="step-num">3</div>
-                    <h4>Energia do grzałki</h4>
-                    <p>Prąd trafia bezpośrednio do grzałki elektrycznej w Twoim istniejącym bojlerze — bez zmian sprzętu.</p>
-                </div>
-                <div class="step-card">
-                    <div class="step-num">4</div>
-                    <h4>Darmowa ciepła woda</h4>
-                    <p>Codziennie od rana masz gorącą wodę — bezpłatnie, niezależnie od cen prądu w sieci.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- REALIZACJE -->
-    <section id="realizacje">
-        <div class="section-inner fade-in-section">
-            <div class="section-head">
-                <div class="section-label">Zobacz na żywo</div>
-                <h2 class="section-title">Realizacje i materiały wideo</h2>
-                <p class="section-sub">Poniżej pierwsze zdjęcia z montażu oraz krótki materiał wideo z YouTube Shorts.</p>
-            </div>
-
-            <div class="realizacje-grid">
-                <figure class="real-card">
-                    <img src="image/panele.jpg" alt="Panele fotowoltaiczne zamontowane do podgrzewania wody" loading="lazy" class="js-lightbox-item" data-caption="Panele PV po montażu">
-                    <figcaption>7 paneli fotowoltaicznych, każdy o mocy 450 W, dają razem 3150 W. Dolne panele zasilają grzałki w buforze (3 kW i 2 kW) - szczegóły opiszemy po dopracowaniu konstrukcji.</figcaption>
-                </figure>
-
-                <figure class="real-card">
-                    <img src="image/falownik.png" alt="Falownik MPPT w instalacji Słoneczny Bojler" loading="lazy" class="js-lightbox-item" data-caption="Falownik MPPT">
-                    <figcaption>Przetwornica napięcia GreenBoost 3000 zasila dwie grzałki: 3 kW i 2 kW.</figcaption>
-                </figure>
-
-                <div class="real-card video">
-                    <iframe
-                        src="https://www.youtube-nocookie.com/embed/K0tg7Okmp0A"
-                        title="Słoneczny Bojler - YouTube Shorts"
-                        loading="lazy"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        referrerpolicy="strict-origin-when-cross-origin"
-                        allowfullscreen></iframe>
-                    <div class="real-video-caption">
-                        Wideo: realizacja w formacie Shorts
-                        <a href="https://www.youtube.com/shorts/K0tg7Okmp0A" target="_blank" rel="noopener noreferrer">Otwórz na YouTube</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- CALCULATOR -->
+      <!-- CALCULATOR -->
     <section id="kalkulator">
         <div class="section-inner fade-in-section">
             <div class="section-head">
@@ -592,6 +494,10 @@
                         </select>
                     </div>
                     <div class="field">
+                        <label>Ilość paneli <span id="val-panels-count">7 szt.</span></label>
+                        <input type="range" id="range-panels-count" min="1" max="40" value="7" step="1">
+                    </div>
+                    <div class="field">
                         <label>Słonecznych dni w roku <span id="val-sunny">180</span></label>
                         <input type="range" id="range-sunny" min="120" max="250" value="180" step="10">
                     </div>
@@ -676,35 +582,55 @@
                             <div class="energy-value">0,00 zł</div>
                         </div>
                         <!-- Drewno -->
-                        <div class="energy-bar-item">
+                        <div class="energy-bar-item" id="row-wood">
                             <div class="energy-label"><span class="energy-icon">🪵</span>Drewno opałowe</div>
                             <div class="energy-bar-wrap"><div class="energy-bar" style="width: 25%;"></div></div>
-                            <div class="energy-value">~0,27 zł</div>
+                            <div class="energy-data">
+                                <div class="energy-value">0,00 zł</div>
+                                <div class="energy-unit-detail"><input type="number" id="input-wood" class="energy-price-input" value="400" step="10"> zł/mp</div>
+                            </div>
                         </div>
                         <!-- Ekogroszek -->
-                        <div class="energy-bar-item">
+                        <div class="energy-bar-item" id="row-coal">
                             <div class="energy-label"><span class="energy-icon">🪨</span>Ekogroszek</div>
                             <div class="energy-bar-wrap"><div class="energy-bar" style="width: 27%;"></div></div>
-                            <div class="energy-value">~0,30 zł</div>
+                            <div class="energy-data">
+                                <div class="energy-value">0,00 zł</div>
+                                <div class="energy-unit-detail"><input type="number" id="input-coal" class="energy-price-input" value="1600" step="50"> zł/t</div>
+                            </div>
                         </div>
                         <!-- Gaz -->
-                        <div class="energy-bar-item">
+                        <div class="energy-bar-item" id="row-gas">
                             <div class="energy-label"><span class="energy-icon">🔥</span>Gaz ziemny</div>
                             <div class="energy-bar-wrap"><div class="energy-bar" style="width: 29%;"></div></div>
-                            <div class="energy-value">~0,32 zł</div>
+                            <div class="energy-data">
+                                <div class="energy-value">0,00 zł</div>
+                                <div class="energy-unit-detail"><input type="number" id="input-gas" class="energy-price-input" value="3.80" step="0.10"> zł/m³</div>
+                            </div>
                         </div>
                         <!-- Pellet -->
-                        <div class="energy-bar-item">
+                        <div class="energy-bar-item" id="row-pellet">
                             <div class="energy-label"><span class="energy-icon">🪵</span>Pellet</div>
                             <div class="energy-bar-wrap"><div class="energy-bar" style="width: 31%;"></div></div>
-                            <div class="energy-value">~0,34 zł</div>
+                            <div class="energy-data">
+                                <div class="energy-value">0,00 zł</div>
+                                <div class="energy-unit-detail"><input type="number" id="input-pellet" class="energy-price-input" value="1400" step="50"> zł/t</div>
+                            </div>
                         </div>
                         <!-- Prąd -->
                         <div class="energy-bar-item electric">
                             <div class="energy-label"><span class="energy-icon">⚡</span>Prąd z sieci (G11)</div>
                             <div class="energy-bar-wrap" id="energy-bar-electric-wrap"><div class="energy-bar" id="energy-bar-electric" style="width: 100%;"></div></div>
-                            <div class="energy-value" id="energy-price-electric">1,10 zł</div>
+                            <div class="energy-data">
+                                <div class="energy-value" id="energy-price-electric">1,10 zł</div>
+                                <div class="energy-unit-detail">Taryfa G11</div>
+                            </div>
                         </div>
+                    </div>
+                    <div style="text-align: center; margin-top: 16px;">
+                        <button id="btn-reset-fuel" class="btn-reset-fuel" type="button">
+                            <i class="fas fa-rotate-left"></i> Przywróć domyślne ceny rynkowe
+                        </button>
                     </div>
                     <p class="energy-chart-note">
                         *Ceny są szacunkowe na Q1 2026 i uwzględniają sprawność kotła/urządzenia. Koszt "Słonecznego Bojlera" to koszt samej energii po jednorazowej inwestycji w instalację. Źródła: URE, portale branżowe.
@@ -862,6 +788,9 @@
                             <button id="btn-export-pdf" class="btn-primary" style="width:100%;margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;">
                                 <i class="fas fa-file-pdf"></i> Pobierz Raport PDF
                             </button>
+                            <button id="btn-reset-roi" style="width:100%; margin-top:10px; background:transparent; border:1px solid var(--border); color:var(--ink-muted); padding:8px; border-radius:100px; font-size:0.8rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; font-family:'Sora',sans-serif; font-weight:600; transition:all 0.2s;" onmouseover="this.style.borderColor='var(--sun)';this.style.color='var(--sun-deep)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--ink-muted)'">
+                                <i class="fas fa-rotate-left"></i> Zresetuj ustawienia
+                            </button>
                         </div>
                         <div class="roi-chart-container">
                             <canvas id="roiChart"></canvas>
@@ -872,11 +801,129 @@
                         Po <strong id="roi-info-years">15 latach</strong> zaoszczędzisz
                         <strong id="roi-info-total">24 000 zł</strong> więcej niż lokata bankowa.
                     </div>
+                    <p style="font-size:0.75rem;color:var(--ink-muted);margin-top:12px;text-align:center;line-height:1.5;max-width:800px;margin-left:auto;margin-right:auto;">
+                        * Symulacja jest modelem poglądowym. Zakłada bezawaryjną pracę systemu. Nie uwzględnia kosztów ewentualnego serwisu (np. wymiana anody magnezowej) ani degradacji paneli (~0.5% rocznie).
+                    </p>
                 </div>
 
             </div>
         </div>
     </section>
+
+    <!-- BENEFITS -->
+    <section id="zalety">
+        <div class="section-inner fade-in-section">
+            <div class="section-head">
+                <div class="section-label">Dlaczego warto</div>
+                <h2 class="section-title">Inwestycja, która<br>zarabia na siebie.</h2>
+                <p class="section-sub">Dlaczego to się opłaca? Bo to czysta matematyka. Jednorazowy koszt montażu zwraca się błyskawicznie, a przez kolejne dekady masz darmowe źródło energii.</p>
+            </div>
+            <div class="benefits-grid">
+                <div class="benefit-card">
+                    <span class="benefit-icon">💰</span>
+                    <h3>Darmowa woda przez pół roku</h3>
+                    <p>Słońce nie wystawia faktur. Od marca do października Twój bojler nagrzewa się "za darmo". Płacisz raz za sprzęt, a korzystasz z darmowej energii przez 25 lat żywotności paneli.</p>
+                </div>
+                <div class="benefit-card">
+                    <span class="benefit-icon">📋</span>
+                    <h3>Bez formalności</h3>
+                    <p>System off-grid nie jest podłączony do sieci — nie wymaga zgłoszenia do zakładu energetycznego, zmiany taryfy ani wymiany licznika.</p>
+                </div>
+                <div class="benefit-card">
+                    <span class="benefit-icon">🔧</span>
+                    <h3>Prosta instalacja</h3>
+                    <p>Kilka paneli PV, falownik MPPT i podłączenie do istniejącej grzałki. Montaż w jeden dzień — bez naruszania instalacji elektrycznej.</p>
+                </div>
+                <div class="benefit-card">
+                    <span class="benefit-icon">📈</span>
+                    <h3>Błyskawiczny zwrot kosztów</h3>
+                    <p>To inwestycja, nie wydatek. Przy obecnych cenach prądu (ponad 1 zł/kWh) system zwraca się w ok. 2 lata. Potem generuje dla Ciebie czysty zysk, chroniąc domowy budżet.</p>
+                </div>
+                <div class="benefit-card">
+                    <span class="benefit-icon">🏠</span>
+                    <h3>Wzrost wartości nieruchomości</h3>
+                    <p>System fotowoltaiczny to dziś standard, który realnie podnosi wartość domu przy ewentualnej sprzedaży.</p>
+                </div>
+                <div class="benefit-card">
+                    <span class="benefit-icon">🌱</span>
+                    <h3>Ekologia bez kompromisów</h3>
+                    <p>Zmniejszasz ślad węglowy i zużycie prądu z sieci, korzystając z czystej energii słonecznej.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section id="jak-to-dziala">
+        <div class="section-inner fade-in-section">
+            <div class="section-head">
+                <div class="section-label" style="color: rgba(245,158,11,0.7)">Zasada działania</div>
+                <h2 class="section-title">Jak to działa?</h2>
+                <p class="section-sub">Cztery proste kroki od instalacji do darmowej ciepłej wody.</p>
+            </div>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-num">1</div>
+                    <h4>Panele PV na dachu</h4>
+                    <p>Od 4+ panele fotowoltaiczne montujemy na dachu lub na gruncie. Optymalnie skierowane na południe.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-num">2</div>
+                    <h4>Falownik MPPT</h4>
+                    <p>Specjalny falownik przetwarza prąd z paneli na parametry odpowiednie dla grzałki bojlera.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-num">3</div>
+                    <h4>Energia do grzałki</h4>
+                    <p>Prąd trafia bezpośrednio do grzałki elektrycznej w Twoim istniejącym bojlerze — bez zmian sprzętu.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-num">4</div>
+                    <h4>Darmowa ciepła woda</h4>
+                    <p>Codziennie od rana masz gorącą wodę — bezpłatnie, niezależnie od cen prądu w sieci.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- REALIZACJE -->
+    <section id="realizacje">
+        <div class="section-inner fade-in-section">
+            <div class="section-head">
+                <div class="section-label">Zobacz na żywo</div>
+                <h2 class="section-title">Realizacje i materiały wideo</h2>
+                <p class="section-sub">Poniżej pierwsze zdjęcia z montażu oraz krótki materiał wideo z YouTube Shorts.</p>
+            </div>
+
+            <div class="realizacje-grid">
+                <figure class="real-card">
+                    <img src="image/panele.jpg" alt="Panele fotowoltaiczne zamontowane do podgrzewania wody" loading="lazy" class="js-lightbox-item" data-caption="Panele PV po montażu">
+                    <figcaption>7 paneli fotowoltaicznych, każdy o mocy 450 W, dają razem 3150 W. Dolne panele zasilają grzałki w buforze (3 kW i 2 kW) - szczegóły opiszemy po dopracowaniu konstrukcji.</figcaption>
+                </figure>
+
+                <figure class="real-card">
+                    <img src="image/falownik.png" alt="Falownik MPPT w instalacji Słoneczny Bojler" loading="lazy" class="js-lightbox-item" data-caption="Falownik MPPT">
+                    <figcaption>Przetwornica napięcia GreenBoost 3000 zasila dwie grzałki: 3 kW i 2 kW.</figcaption>
+                </figure>
+
+                <div class="real-card video">
+                    <iframe
+                        src="https://www.youtube-nocookie.com/embed/K0tg7Okmp0A"
+                        title="Słoneczny Bojler - YouTube Shorts"
+                        loading="lazy"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerpolicy="strict-origin-when-cross-origin"
+                        allowfullscreen></iframe>
+                    <div class="real-video-caption">
+                        Wideo: realizacja w formacie Shorts
+                        <a href="https://www.youtube.com/shorts/K0tg7Okmp0A" target="_blank" rel="noopener noreferrer">Otwórz na YouTube</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+  
     <!-- MAGAZYN ENERGII -->
     <!-- ─── START: NOWA SEKCJA MAGAZYN ENERGII ─── -->
     <section id="magazyn-energii" style="background: var(--white);">
@@ -904,6 +951,12 @@
                             <label>Roczne zużycie energii &nbsp;<span id="me-val-kwh" class="field-val">4 500 kWh</span></label>
                             <input type="range" id="me-sl-kwh" min="2000" max="15000" step="100" value="4500">
                             <p style="font-size:0.75rem;color:var(--ink-muted);margin-top:4px;">Znajdziesz na fakturze za prąd. Przeciętny dom 4-osobowy: 3 500–5 000 kWh/rok.</p>
+                        </div>
+                        <div class="field" style="margin-top:-12px;">
+                            <label class="checkbox-label" style="font-size:0.85rem; color:var(--ink-soft);">
+                                <input type="checkbox" id="me-check-hp">
+                                <span>Posiadam pompę ciepła (wyższe zużycie zimą)</span>
+                            </label>
                         </div>
                         <div class="field">
                             <label>Profil domowników w ciągu dnia</label>

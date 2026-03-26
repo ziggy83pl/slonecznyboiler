@@ -379,7 +379,7 @@
 
                     <div class="sw-divider"></div>
                     <div class="sw-forecast-header">
-                        <div class="sw-forecast-title">Prognoza (7 dni)</div>
+                        <div class="sw-forecast-title">Prognoza (14 dni)</div>
                         <div class="sw-controls">
                             <button class="sw-toggle-btn active" data-view="solar">Produkcja</button>
                             <button class="sw-toggle-btn" data-view="temp">Temperatura</button>
@@ -415,7 +415,11 @@
 
                     <div class="field">
                         <label>Pojemność bojlera <span id="val-volume">180 L</span></label>
-                        <input type="range" id="range-volume" min="50" max="300" value="180" step="10">
+                        <div class="range-wrapper">
+                            <button type="button" class="range-btn" data-target="range-volume" data-dir="-1">−</button>
+                            <input type="range" id="range-volume" min="50" max="300" value="180" step="10">
+                            <button type="button" class="range-btn" data-target="range-volume" data-dir="1">+</button>
+                        </div>
                     </div>
                     
                     <!-- Sekcja Grzałek (Dynamiczna) -->
@@ -440,11 +444,19 @@
                     </div>
                     <div class="field">
                         <label>Ilość osób w domu <span id="val-persons">4</span></label>
-                        <input type="range" id="range-persons" min="1" max="8" value="4" step="1">
+                        <div class="range-wrapper">
+                            <button type="button" class="range-btn" data-target="range-persons" data-dir="-1">−</button>
+                            <input type="range" id="range-persons" min="1" max="8" value="4" step="1">
+                            <button type="button" class="range-btn" data-target="range-persons" data-dir="1">+</button>
+                        </div>
                     </div>
                     <div class="field">
                         <label>Cena prądu (zł/kWh) <span id="val-price">1.10 zł</span></label>
-                        <input type="range" id="range-price" min="0.50" max="1.80" value="1.10" step="0.05">
+                        <div class="range-wrapper">
+                            <button type="button" class="range-btn" data-target="range-price" data-dir="-1">−</button>
+                            <input type="range" id="range-price" min="0.50" max="1.80" value="1.10" step="0.05">
+                            <button type="button" class="range-btn" data-target="range-price" data-dir="1">+</button>
+                        </div>
                     </div>
                     <div class="field">
                         <label>
@@ -472,7 +484,11 @@
                                 <span id="val-tilt">35°</span>
                             </div>
                         </label>
-                        <input type="range" id="range-tilt" min="0" max="90" value="35" step="5">
+                        <div class="range-wrapper">
+                            <button type="button" class="range-btn" data-target="range-tilt" data-dir="-1">−</button>
+                            <input type="range" id="range-tilt" min="0" max="90" value="35" step="5">
+                            <button type="button" class="range-btn" data-target="range-tilt" data-dir="1">+</button>
+                        </div>
                     </div>
                     <div class="field">
                         <label>Orientacja dachu</label>
@@ -496,11 +512,19 @@
                     </div>
                     <div class="field">
                         <label>Ilość paneli <span id="val-panels-count">7 szt.</span></label>
-                        <input type="range" id="range-panels-count" min="1" max="40" value="7" step="1">
+                        <div class="range-wrapper">
+                            <button type="button" class="range-btn" data-target="range-panels-count" data-dir="-1">−</button>
+                            <input type="range" id="range-panels-count" min="1" max="40" value="7" step="1">
+                            <button type="button" class="range-btn" data-target="range-panels-count" data-dir="1">+</button>
+                        </div>
                     </div>
                     <div class="field">
                         <label>Słonecznych dni w roku <span id="val-sunny">180</span></label>
-                        <input type="range" id="range-sunny" min="120" max="250" value="180" step="10">
+                        <div class="range-wrapper">
+                            <button type="button" class="range-btn" data-target="range-sunny" data-dir="-1">−</button>
+                            <input type="range" id="range-sunny" min="120" max="250" value="180" step="10">
+                            <button type="button" class="range-btn" data-target="range-sunny" data-dir="1">+</button>
+                        </div>
                     </div>
                     <div class="field">
                         <label>
@@ -763,23 +787,43 @@
                             <h3 style="font-family:'Sora',sans-serif;font-size:0.95rem;font-weight:700;margin-bottom:16px;">Dostosuj scenariusz</h3>
                             <div class="field">
                                 <label>Koszt instalacji: <span id="roi-cost-val" class="field-val">3 500 zł</span></label>
-                                <input type="range" id="roi-cost" min="2000" max="6000" step="100" value="3500">
+                                <div class="range-wrapper">
+                                    <button type="button" class="range-btn" data-target="roi-cost" data-dir="-1">−</button>
+                                    <input type="range" id="roi-cost" min="2000" max="6000" step="100" value="3500">
+                                    <button type="button" class="range-btn" data-target="roi-cost" data-dir="1">+</button>
+                                </div>
                             </div>
                             <div class="field">
                                 <label>Roczna oszczędność: <span id="roi-saving-val" class="field-val">1 640 zł</span></label>
-                                <input type="range" id="roi-saving" min="500" max="4000" step="50" value="1640">
+                                <div class="range-wrapper">
+                                    <button type="button" class="range-btn" data-target="roi-saving" data-dir="-1">−</button>
+                                    <input type="range" id="roi-saving" min="500" max="4000" step="50" value="1640">
+                                    <button type="button" class="range-btn" data-target="roi-saving" data-dir="1">+</button>
+                                </div>
                             </div>
                             <div class="field">
                                 <label>Wzrost cen prądu / rok: <span id="roi-inflation-val" class="field-val" style="color:var(--sun);">8%</span></label>
-                                <input type="range" id="roi-inflation" min="0" max="20" step="0.5" value="8">
+                                <div class="range-wrapper">
+                                    <button type="button" class="range-btn" data-target="roi-inflation" data-dir="-1">−</button>
+                                    <input type="range" id="roi-inflation" min="0" max="20" step="0.5" value="8">
+                                    <button type="button" class="range-btn" data-target="roi-inflation" data-dir="1">+</button>
+                                </div>
                             </div>
                             <div class="field">
                                 <label>Oprocentowanie lokaty: <span id="roi-deposit-val" class="field-val">5%</span></label>
-                                <input type="range" id="roi-deposit-rate" min="1" max="10" step="0.5" value="5">
+                                <div class="range-wrapper">
+                                    <button type="button" class="range-btn" data-target="roi-deposit-rate" data-dir="-1">−</button>
+                                    <input type="range" id="roi-deposit-rate" min="1" max="10" step="0.5" value="5">
+                                    <button type="button" class="range-btn" data-target="roi-deposit-rate" data-dir="1">+</button>
+                                </div>
                             </div>
                             <div class="field">
                                 <label>Horyzont czasowy: <span id="roi-years-val" class="field-val">15 lat</span></label>
-                                <input type="range" id="roi-years" min="5" max="25" step="1" value="15">
+                                <div class="range-wrapper">
+                                    <button type="button" class="range-btn" data-target="roi-years" data-dir="-1">−</button>
+                                    <input type="range" id="roi-years" min="5" max="25" step="1" value="15">
+                                    <button type="button" class="range-btn" data-target="roi-years" data-dir="1">+</button>
+                                </div>
                             </div>
                             <div class="roi-legend">
                                 <div class="roi-legend-item"><span class="roi-legend-line" style="background:#16a34a;"></span>Słoneczny Bojler</div>
@@ -950,8 +994,11 @@
                         <h3 class="me-form-title">Parametry zużycia</h3>
                         <div class="field">
                             <label>Roczne zużycie energii &nbsp;<span id="me-val-kwh" class="field-val">4 500 kWh</span></label>
-                            <input type="range" id="me-sl-kwh" min="2000" max="15000" step="100" value="4500">
-                            <p style="font-size:0.75rem;color:var(--ink-muted);margin-top:4px;">Znajdziesz na fakturze za prąd. Przeciętny dom 4-osobowy: 3 500–5 000 kWh/rok.</p>
+                            <div class="range-wrapper">
+                                <button type="button" class="range-btn" data-target="me-sl-kwh" data-dir="-1">−</button>
+                                <input type="range" id="me-sl-kwh" min="2000" max="15000" step="100" value="4500">
+                                <button type="button" class="range-btn" data-target="me-sl-kwh" data-dir="1">+</button>
+                            </div>
                         </div>
                         <div class="field" style="margin-top:-12px;">
                             <label class="checkbox-label" style="font-size:0.85rem; color:var(--ink-soft);">
@@ -986,7 +1033,11 @@
                         </div>
                         <div class="field" id="me-autonomy-wrap" style="display:none;">
                             <label>Czas pracy awaryjnej &nbsp;<span id="me-val-auto" class="field-val">8 h</span></label>
-                            <input type="range" id="me-sl-auto" min="1" max="48" step="1" value="8">
+                            <div class="range-wrapper">
+                                <button type="button" class="range-btn" data-target="me-sl-auto" data-dir="-1">−</button>
+                                <input type="range" id="me-sl-auto" min="1" max="48" step="1" value="8">
+                                <button type="button" class="range-btn" data-target="me-sl-auto" data-dir="1">+</button>
+                            </div>
                         </div>
                         <div style="margin-top:14px;">
                             <div style="font-size:0.75rem;font-weight:600;color:var(--ink-soft);margin-bottom:8px;">Struktura zużycia (szacunkowo):</div>
@@ -1072,12 +1123,20 @@
 
                         <div class="field">
                             <label>Moc instalacji PV &nbsp;<span id="me-val-pv" class="field-val">5,0 kWp</span></label>
-                            <input type="range" id="me-sl-pv" min="1" max="20" step="0.5" value="5.0">
+                            <div class="range-wrapper">
+                                <button type="button" class="range-btn" data-target="me-sl-pv" data-dir="-1">−</button>
+                                <input type="range" id="me-sl-pv" min="1" max="20" step="0.5" value="5.0">
+                                <button type="button" class="range-btn" data-target="me-sl-pv" data-dir="1">+</button>
+                            </div>
                         </div>
 
                         <div class="field">
                             <label>Szczytowe zużycie w domu &nbsp;<span id="me-val-load" class="field-val">3,0 kW</span></label>
-                            <input type="range" id="me-sl-load" min="1" max="20" step="0.5" value="3.0">
+                            <div class="range-wrapper">
+                                <button type="button" class="range-btn" data-target="me-sl-load" data-dir="-1">−</button>
+                                <input type="range" id="me-sl-load" min="1" max="20" step="0.5" value="3.0">
+                                <button type="button" class="range-btn" data-target="me-sl-load" data-dir="1">+</button>
+                            </div>
                             <p style="font-size:0.75rem;color:var(--ink-muted);margin-top:4px;">Suma mocy urządzeń pracujących jednocześnie: AGD, ogrzewanie, ładowanie auta itp.</p>
                         </div>
 
@@ -1114,7 +1173,11 @@
 
                         <div class="field">
                             <label>Łączna moc instalacji &nbsp;<span id="me-val-pvkwp" class="field-val">5,0 kWp</span></label>
-                            <input type="range" id="me-sl-pvkwp" min="1" max="20" step="0.5" value="5.0">
+                            <div class="range-wrapper">
+                                <button type="button" class="range-btn" data-target="me-sl-pvkwp" data-dir="-1">−</button>
+                                <input type="range" id="me-sl-pvkwp" min="1" max="20" step="0.5" value="5.0">
+                                <button type="button" class="range-btn" data-target="me-sl-pvkwp" data-dir="1">+</button>
+                            </div>
                         </div>
 
                         <div class="field">
@@ -1140,7 +1203,11 @@
 
                         <div class="field">
                             <label>Kąt nachylenia dachu &nbsp;<span id="me-val-tilt" class="field-val">35°</span></label>
-                            <input type="range" id="me-sl-tilt" min="10" max="60" step="5" value="35">
+                            <div class="range-wrapper">
+                                <button type="button" class="range-btn" data-target="me-sl-tilt" data-dir="-1">−</button>
+                                <input type="range" id="me-sl-tilt" min="10" max="60" step="5" value="35">
+                                <button type="button" class="range-btn" data-target="me-sl-tilt" data-dir="1">+</button>
+                            </div>
                             <p style="font-size:0.75rem;color:var(--ink-muted);margin-top:4px;">Optymalne dla regionu Łomża: 32–38°.</p>
                         </div>
                     </div>

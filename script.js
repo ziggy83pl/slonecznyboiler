@@ -9,6 +9,7 @@ const inputs = {
     tilt:    { el: document.getElementById('range-tilt'),    out: document.getElementById('val-tilt'),    unit: '°' },
     orient:  { el: document.getElementById('select-orientation'), out: null, unit: '' },
     panelPower: { el: document.getElementById('select-panel-power'), out: null, unit: '' },
+    panelsCount: { el: document.getElementById('range-panels-count'), out: document.getElementById('val-panels-count'), unit: ' szt.' },
 };
 const calcModeEl = document.getElementById('select-calc-mode');
 const CALC_STORAGE_KEY = 'solarBoilerCalcStateV1';
@@ -103,6 +104,7 @@ function saveCalculatorState() {
                 tilt: inputs.tilt.el?.value,
                 orient: inputs.orient.el?.value,
                 panelPower: inputs.panelPower.el?.value,
+                panelsCount: inputs.panelsCount.el?.value,
                 calcMode: calcModeEl?.value || 'live'
             }
         };
@@ -134,7 +136,8 @@ function restoreCalculatorState() {
                 sunny: inputs.sunny.el,
                 tilt: inputs.tilt.el,
                 orient: inputs.orient.el,
-                panelPower: inputs.panelPower.el
+                panelPower: inputs.panelPower.el,
+                panelsCount: inputs.panelsCount.el
             };
             Object.entries(valueMap).forEach(([key, el]) => {
                 if (el && state.values[key] !== undefined && state.values[key] !== null) {
@@ -188,20 +191,34 @@ function renderHeaters() {
         const row = document.createElement('div');
         row.className = 'heater-row';
         
+        // Minus button
+        const minusBtn = document.createElement('button');
+        minusBtn.type = 'button';
+        minusBtn.className = 'range-btn';
+        minusBtn.textContent = '−';
+        minusBtn.title = 'Zmniejsz moc';
+
         // Input range
         const input = document.createElement('input');
         input.type = 'range';
         input.min = '1.0';
-        input.max = animationState.currentMode === 'buffer' ? '9.0' : '4.0'; // Większa moc dla bufora
+        input.max = animationState.currentMode === 'buffer' ? '9.0' : '4.0';
         input.step = '0.1';
         input.value = val;
         
+        // Plus button
+        const plusBtn = document.createElement('button');
+        plusBtn.type = 'button';
+        plusBtn.className = 'range-btn';
+        plusBtn.textContent = '+';
+        plusBtn.title = 'Zwiększ moc';
+
         // Display value
         const display = document.createElement('span');
         display.className = 'heater-val-display';
         display.textContent = val.toFixed(1) + ' kW';
 
-        // Event listener
+        // Event listener for slider
         input.addEventListener('input', (e) => {
             const newVal = parseFloat(e.target.value);
             animationState.heaters[index] = newVal;
@@ -209,7 +226,27 @@ function renderHeaters() {
             calcUpdate();
         });
 
+        // Minus button action
+        minusBtn.addEventListener('click', () => {
+            const newVal = Math.max(parseFloat(input.min), parseFloat(input.value) - parseFloat(input.step));
+            input.value = newVal;
+            animationState.heaters[index] = newVal;
+            display.textContent = newVal.toFixed(1) + ' kW';
+            calcUpdate();
+        });
+
+        // Plus button action
+        plusBtn.addEventListener('click', () => {
+            const newVal = Math.min(parseFloat(input.max), parseFloat(input.value) + parseFloat(input.step));
+            input.value = newVal;
+            animationState.heaters[index] = newVal;
+            display.textContent = newVal.toFixed(1) + ' kW';
+            calcUpdate();
+        });
+
+        row.appendChild(minusBtn);
         row.appendChild(input);
+        row.appendChild(plusBtn);
         row.appendChild(display);
 
         // Remove button (only if more than 1 heater)
@@ -243,6 +280,24 @@ document.getElementById('btn-add-heater')?.addEventListener('click', () => {
     calcUpdate();
 });
 
+// ── Globalne przyciski − / + dla statycznych suwaków ──
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.range-btn[data-target]');
+    if (!btn) return;
+    const targetId = btn.dataset.target;
+    const dir = parseFloat(btn.dataset.dir); // -1 lub +1
+    const slider = document.getElementById(targetId);
+    if (!slider) return;
+    const step = parseFloat(slider.step) || 1;
+    const min  = parseFloat(slider.min);
+    const max  = parseFloat(slider.max);
+    const newVal = Math.min(max, Math.max(min, parseFloat(slider.value) + dir * step));
+    // Zaokrągl do precyzji stepu
+    const precision = (step.toString().split('.')[1] || '').length;
+    slider.value = newVal.toFixed(precision);
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+});
+
 // ── 3. Funkcja obliczeniowa ─────────────────────────
 function calcUpdate() {
     // Bezpieczne odczytanie — jeśli element nie istnieje, użyj domyślnej wartości
@@ -261,6 +316,7 @@ function calcUpdate() {
     const tilt    = inputs.tilt.el    ? +inputs.tilt.el.value    : 35;
     const orient  = inputs.orient.el  ? +inputs.orient.el.value  : 1.0;
     const panelPower = inputs.panelPower.el ? +inputs.panelPower.el.value : 450;
+    const panelsCount = inputs.panelsCount.el ? +inputs.panelsCount.el.value : 7;
 
     // Energia do podgrzania wody: Q = m × c × ΔT / 3600
     // ~50L/os/dzień, ΔT = 35°C, c = 4.186 kJ/(kg·K)
@@ -327,7 +383,15 @@ function calcUpdate() {
     const tempEffLive     = getTemperatureEfficiencyFactor(weatherState.temperatureC, weatherState.radiationWm2);
     const calcMode        = calcModeEl ? calcModeEl.value : 'live';
     const tempEff         = calcMode === 'standard' ? 1 : tempEffLive;
-    const solarCoverage   = (sunny / 365) * volumeFactor * tiltEff * orient * tempEff;
+
+    // Logika uwzględniająca liczbę paneli:
+    const totalPowerKW = (panelsCount * panelPower) / 1000;
+    // Szacowana produkcja w słoneczny dzień (kWh) uwzględniająca warunki montażowe
+    const productionPotential = totalPowerKW * 4.2 * tiltEff * orient * tempEff;
+    // Czy moc paneli wystarcza na zagrzanie wody w ciągu dnia?
+    const powerFactor = Math.min(1, productionPotential / totalPerDay);
+    const solarCoverage = (sunny / 365) * volumeFactor * powerFactor;
+
     const saving          = costPerYear * solarCoverage;
 
     const investmentCost  = 3200;
@@ -438,9 +502,7 @@ function calcUpdate() {
         breakdownEl.innerHTML =
             `<div class="factor-row"><span>Słoneczne dni</span><strong>${pct(daysEff)}</strong></div>` +
             `<div class="factor-row"><span>Pojemność (akumulacja)</span><strong>${pct(volumeFactor)}</strong></div>` +
-            `<div class="factor-row"><span>Kąt nachylenia</span><strong>${pct(tiltEff)}</strong></div>` +
-            `<div class="factor-row"><span>Orientacja dachu</span><strong>${pct(orient)}</strong></div>` +
-            `<div class="factor-row"><span>Temperatura paneli</span><strong>${pct(tempEff)}</strong></div>` +
+            `<div class="factor-row"><span>Wydajność zestawu (${panelsCount} szt.)</span><strong>${pct(powerFactor)}</strong></div>` +
             `<div class="factor-row"><span>Końcowe pokrycie</span><strong>${pct(solarCoverage)}</strong></div>`;
     }
 
@@ -617,8 +679,31 @@ Object.entries(inputs).forEach(([key, obj]) => {
         console.warn('Kalkulator: brak suwaka dla klucza:', key);
         return;
     }
+
+    // Handle non-range inputs (selects)
+    if (obj.el.type !== 'range') {
+        obj.el.addEventListener('input', () => {
+            const val = obj.el.value;
+            if (obj.out) {
+                obj.out.textContent = (key === 'price')
+                    ? parseFloat(val).toFixed(2) + obj.unit
+                    : val + obj.unit;
+            }
+            calcUpdate();
+        });
+        // Initial update for non-range elements
+        if (obj.out && obj.el.value !== undefined) {
+            const val = obj.el.value;
+            obj.out.textContent = (key === 'price')
+                ? parseFloat(val).toFixed(2) + obj.unit
+                : val + obj.unit;
+        }
+        return;
+    }
+
+    // Event listener na suwaku
     obj.el.addEventListener('input', () => {
-        const val = +obj.el.value;
+        const val = parseFloat(obj.el.value);
         if (obj.out) {
             obj.out.textContent = (key === 'price')
                 ? val.toFixed(2) + obj.unit
@@ -627,12 +712,11 @@ Object.entries(inputs).forEach(([key, obj]) => {
         calcUpdate();
     });
 
-    // Inicjalizuj etykietę suwaka przy starcie
+    // Inicjalne ustawienie etykiety
     if (obj.out && obj.el.value !== undefined) {
-        const val = +obj.el.value;
+        const val = parseFloat(obj.el.value);
         obj.out.textContent = (key === 'price')
             ? val.toFixed(2) + obj.unit
-            : (key === 'tilt')   ? val + obj.unit
             : val + obj.unit;
     }
 });
@@ -1243,6 +1327,21 @@ function startStars() {
     starsAnimFrame = requestAnimationFrame(drawStars);
 }
 
+// Reinicjalizuj canvas przy każdej zmianie rozmiaru widgetu
+(function() {
+    const canvas = document.getElementById('sw-stars-canvas');
+    const widget = canvas ? canvas.closest('.solar-widget') : null;
+    if (!widget) return;
+    let resizeTimer = null;
+    const ro = new ResizeObserver(() => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            initStars();
+        }, 120);
+    });
+    ro.observe(widget);
+})();
+
 // ── SOLAR WIDGET: Licznik mocy na zywo ──────────────────────
 let livePowerCurrent = 0;
 
@@ -1459,104 +1558,118 @@ function drawSolarCurve(hoverX = null) {
     ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1; ctx.stroke();
 }
 
+// ── Mapa kodów WMO → emoji ikona i opis ──────────────
+function wmoIcon(code) {
+    if (code === 0)               return { icon: '☀️',  label: 'Bezchmurnie' };
+    if (code <= 2)                return { icon: '🌤️',  label: 'Częściowe zachmurzenie' };
+    if (code === 3)               return { icon: '☁️',  label: 'Pochmurno' };
+    if (code <= 49)               return { icon: '🌫️',  label: 'Mgła' };
+    if (code <= 59)               return { icon: '🌦️',  label: 'Mżawka' };
+    if (code <= 69)               return { icon: '🌧️',  label: 'Deszcz' };
+    if (code <= 79)               return { icon: '❄️',  label: 'Śnieg' };
+    if (code <= 84)               return { icon: '🌧️',  label: 'Przelotne opady' };
+    if (code <= 94)               return { icon: '⛈️',  label: 'Burza' };
+    return                               { icon: '⛈️',  label: 'Burza z gradem' };
+}
+
 function renderForecast(view) {
     const container = document.getElementById('sw-forecast');
     if (!container || !solarState || !solarState.daily) return;
 
     container.innerHTML = '';
     const daily = solarState.daily;
-    const days = ['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'];
+    const DAYS_PL = ['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'];
+    const MONTHS_PL = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
     const efficiency = 0.82;
+    const n = daily.shortwave_radiation_sum?.length ?? 14;
 
     if (view === 'solar') {
-        // ── WIDOK PRODUKCJI (Słupki) ──
-        const dailyRad = daily.shortwave_radiation_sum; // MJ/m²
+        // ── WIDOK PRODUKCJI — słupki + ikona pogody + opady ──
+        const dailyRad  = daily.shortwave_radiation_sum;
+        const wCodes    = daily.weather_code ?? [];
+        const precip    = daily.precipitation_sum ?? [];
         const systemKWp = PEAK_POWER / 1000;
-        // 1 MJ = 0.277 kWh. Wzór: (MJ/m² / 3.6) * (Moc_kWp) * Sprawność
-        const dailyKWh = dailyRad.map(mj => (mj / 3.6) * systemKWp * efficiency);
-        const maxKWh = Math.max(...dailyKWh, 5); // min skala 5 kWh
+        const dailyKWh  = dailyRad.map(mj => (mj / 3.6) * systemKWp * efficiency);
+        const maxKWh    = Math.max(...dailyKWh, 5);
 
         dailyKWh.forEach((val, i) => {
             const date = new Date();
             date.setDate(date.getDate() + i);
-            const dayName = i === 0 ? 'Dziś' : days[date.getDay()];
-            const heightPct = (val / maxKWh) * 100;
-            const isToday = i === 0 ? 'today' : '';
-            
-            // Tooltip text
-            let tooltip = `Prognoza: ${val.toFixed(2)} kWh`;
-            
-            // Dla dzisiaj dodaj produkcję do tej pory
-            if (i === 0 && solarState.currentProduction) {
-                tooltip += ` (Do teraz: ${solarState.currentProduction} kWh)`;
-            }
+            const dayName  = i === 0 ? 'Dziś' : DAYS_PL[date.getDay()];
+            const dateStr  = `${date.getDate()} ${MONTHS_PL[date.getMonth()]}`;
+            const heightPct = Math.max((val / maxKWh) * 100, 2);
+            const wmo      = wmoIcon(wCodes[i] ?? 0);
+            const rain     = precip[i] > 0.1 ? `<div class="sw-rain">${precip[i].toFixed(1)} mm</div>` : '';
+            const isToday  = i === 0 ? 'today' : '';
+            const isFar    = i >= 10 ? 'sw-far' : '';
+            const tooltip  = `${dateStr} — ${wmo.label}\nProdukcja: ${val.toFixed(2)} kWh${precip[i] > 0.1 ? `\nOpady: ${precip[i].toFixed(1)} mm` : ''}`;
 
             const html = `
-                <div class="sw-day ${isToday} sw-animate-in" style="animation-delay: ${i * 0.05}s" data-tooltip="${tooltip}">
+                <div class="sw-day ${isToday} ${isFar} sw-animate-in" style="animation-delay:${i * 0.04}s" data-tooltip="${tooltip}">
+                    <div class="sw-wmo">${wmo.icon}</div>
                     <div class="sw-bar-wrap">
                         <div class="sw-day-val">${val.toFixed(1)}</div>
-                        <div class="sw-bar" style="height: ${heightPct}%"></div>
+                        <div class="sw-bar" style="height:${heightPct}%"></div>
                     </div>
+                    ${rain}
                     <div class="sw-day-name">${dayName}</div>
-                </div>
-            `;
+                    <div class="sw-day-date">${dateStr}</div>
+                </div>`;
             container.insertAdjacentHTML('beforeend', html);
         });
 
     } else {
-        // ── WIDOK TEMPERATURY (Wykres liniowy SVG) ──
-        const tMax = daily.temperature_2m_max;
-        const tMin = daily.temperature_2m_min;
-        
-        // Skalowanie Y
-        const globalMax = Math.max(...tMax) + 2;
-        const globalMin = Math.min(...tMin) - 2;
-        const range = globalMax - globalMin;
-        
-        // Generowanie punktów SVG
-        let pointsMax = "", pointsMin = "";
-        // Używamy 7 kolumn, punkty w środku każdej kolumny (jak w wykresie słupkowym)
-        const colWidth = 100 / 7;
+        // ── WIDOK TEMPERATURY — SVG linia ──
+        const tMax     = daily.temperature_2m_max;
+        const tMin     = daily.temperature_2m_min;
+        const wCodes   = daily.weather_code ?? [];
+        const globalMax = Math.max(...tMax) + 3;
+        const globalMin = Math.min(...tMin) - 3;
+        const range    = globalMax - globalMin || 1;
+        const colWidth = 100 / n;
 
-        let tempLabelsHtml = "";
-        let dayLabelsHtml = "";
+        let pointsMax = '', pointsMin = '';
+        let tempLabels = '', dayLabels = '', iconLabels = '';
 
         tMax.forEach((val, i) => {
-            // X w środku kolumny
-            const x = (i + 0.5) * colWidth;
-            const yMax = 100 - ((val - globalMin) / range) * 100; // odwrócona oś Y
+            const x    = (i + 0.5) * colWidth;
+            const yMax = 100 - ((val - globalMin) / range) * 100;
             const yMin = 100 - ((tMin[i] - globalMin) / range) * 100;
-            
-            pointsMax += `${x},${yMax} `;
-            pointsMin += `${x},${yMin} `;
-            
-            // Dodanie etykiet tekstowych (Dzień + Temp)
-            const date = new Date(); date.setDate(date.getDate() + i);
-            const dayName = i === 0 ? 'Dziś' : days[date.getDay()];
-            
-            // Etykiety dni (na dole)
-            dayLabelsHtml += `<div style="position:absolute; left:${i * colWidth}%; bottom:0; width:${colWidth}%; text-align:center; font-size:0.7rem; color:rgba(255,255,255,0.4); text-transform:uppercase;">${dayName}</div>`;
+            pointsMax += `${x.toFixed(2)},${yMax.toFixed(2)} `;
+            pointsMin += `${x.toFixed(2)},${yMin.toFixed(2)} `;
 
-            // Etykiety temperatur (HTML nad/pod punktami)
-            tempLabelsHtml += `<div style="position:absolute; left:${i * colWidth}%; top:${yMax}%; width:${colWidth}%; text-align:center; transform:translateY(-100%); margin-top:-8px; font-size:0.75rem; font-weight:700; color:#ef4444;">${Math.round(val)}°</div>`;
-            tempLabelsHtml += `<div style="position:absolute; left:${i * colWidth}%; top:${yMin}%; width:${colWidth}%; text-align:center; margin-top:8px; font-size:0.75rem; font-weight:700; color:#3b82f6;">${Math.round(tMin[i])}°</div>`;
+            const date = new Date();
+            date.setDate(date.getDate() + i);
+            const dayName = i === 0 ? 'Dziś' : DAYS_PL[date.getDay()];
+            const dateStr = `${date.getDate()} ${MONTHS_PL[date.getMonth()]}`;
+            const wmo = wmoIcon(wCodes[i] ?? 0);
+            const isFar = i >= 10 ? 'opacity:0.45;' : '';
+
+            iconLabels  += `<div style="position:absolute;left:${(i * colWidth).toFixed(2)}%;top:0;width:${colWidth.toFixed(2)}%;text-align:center;font-size:0.85rem;${isFar}">${wmo.icon}</div>`;
+            tempLabels  += `<div style="position:absolute;left:${(i * colWidth).toFixed(2)}%;top:${yMax.toFixed(2)}%;width:${colWidth.toFixed(2)}%;text-align:center;transform:translateY(-115%);font-size:0.65rem;font-weight:700;color:#ef4444;${isFar}">${Math.round(val)}°</div>`;
+            tempLabels  += `<div style="position:absolute;left:${(i * colWidth).toFixed(2)}%;top:${yMin.toFixed(2)}%;width:${colWidth.toFixed(2)}%;text-align:center;margin-top:4px;font-size:0.65rem;font-weight:700;color:#60a5fa;${isFar}">${Math.round(tMin[i])}°</div>`;
+            dayLabels   += `<div style="position:absolute;left:${(i * colWidth).toFixed(2)}%;bottom:14px;width:${colWidth.toFixed(2)}%;text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.5);text-transform:uppercase;${isFar}">${dayName}</div>`;
+            dayLabels   += `<div style="position:absolute;left:${(i * colWidth).toFixed(2)}%;bottom:0;width:${colWidth.toFixed(2)}%;text-align:center;font-size:0.55rem;color:rgba(255,255,255,0.25);${isFar}">${dateStr}</div>`;
         });
 
-        const svgHtml = `
-            <div style="position:relative; width:100%; height:100%;">
-                <div style="position:absolute; top:0; left:0; right:0; bottom:24px;">
-                    <svg class="sw-temp-svg" viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%; height:100%; overflow:visible;">
-                        <line x1="0" y1="50" x2="100" y2="50" stroke="rgba(255,255,255,0.05)" stroke-width="0.5" vector-effect="non-scaling-stroke" />
-                        <polyline points="${pointsMax}" fill="none" stroke="#ef4444" stroke-width="2" vector-effect="non-scaling-stroke" />
-                        <polyline points="${pointsMin}" fill="none" stroke="#3b82f6" stroke-width="2" vector-effect="non-scaling-stroke" />
+        // Pionowe linie co 7 dni (separator tydzień 1 / tydzień 2)
+        const sepX = (7 * colWidth).toFixed(2);
+
+        container.innerHTML = `
+            <div style="position:relative;width:100%;height:100%;">
+                <div style="position:absolute;top:22px;left:0;right:0;bottom:32px;">
+                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%;height:100%;overflow:visible;">
+                        <line x1="${sepX}" y1="-5" x2="${sepX}" y2="105" stroke="rgba(255,255,255,0.08)" stroke-width="0.5" vector-effect="non-scaling-stroke" stroke-dasharray="3,3"/>
+                        <polyline points="${pointsMax}" fill="none" stroke="#ef4444" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+                        <polyline points="${pointsMin}" fill="none" stroke="#60a5fa" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
                     </svg>
-                    ${tempLabelsHtml}
+                    ${tempLabels}
                 </div>
-                ${dayLabelsHtml}
-            </div>
-        `;
-        container.innerHTML = svgHtml;
-        container.style.position = 'relative'; // dla pozycjonowania etykiet
+                <div style="position:absolute;top:0;left:0;right:0;height:22px;">${iconLabels}</div>
+                ${dayLabels}
+                <div style="position:absolute;top:4px;right:0;font-size:0.55rem;color:rgba(255,255,255,0.2);letter-spacing:.04em;">Tydzień 2 →</div>
+            </div>`;
+        container.style.position = 'relative';
     }
 }
 
@@ -1720,9 +1833,9 @@ async function loadSolarData() {
         const url = `https://api.open-meteo.com/v1/forecast` +
             `?latitude=${LAT}&longitude=${LNG}` +
             `&current=shortwave_radiation,cloud_cover,is_day,temperature_2m,weather_code,relative_humidity_2m` +
-            `&daily=shortwave_radiation_sum,temperature_2m_max,temperature_2m_min,sunrise,sunset` +
+            `&daily=shortwave_radiation_sum,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,weather_code` +
             `&timezone=Europe/Warsaw` +
-            `&forecast_days=7`;
+            `&forecast_days=14`;
 
         console.log('☀ Fetch URL:', url);
 

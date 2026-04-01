@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sloneczny-bojler-v47';
+const CACHE_NAME = 'sloneczny-bojler-v49';
 const urlsToCache = [
   './',
   './index.html',
@@ -8,6 +8,8 @@ const urlsToCache = [
   './blog.js',
   './portfolio-logos.js',
   './manifest.json',
+  './stars.6.json',
+  './constellations.lines.json',
   './image/panele.jpg',
   './image/falownik.png',
   './logo/icon-192.png',

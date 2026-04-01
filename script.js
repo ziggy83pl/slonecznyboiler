@@ -1,5 +1,5 @@
-// ── CALCULATOR ───────────────────────────────────────
-// ── 1. Definicja inputs (sprawdź czy ID zgadzają się z HTML!) ──
+﻿// CALCULATOR
+// 1. Definicja inputs (sprawdź czy ID zgadzają się z HTML!)
 const inputs = {
     volume:  { el: document.getElementById('range-volume'),  out: document.getElementById('val-volume'),  unit: ' L' },
     // heater: USUNIĘTE - teraz obsługiwane dynamicznie przez tablicę heatersState
@@ -10,15 +10,16 @@ const inputs = {
     orient:  { el: document.getElementById('select-orientation'), out: null, unit: '' },
     panelPower: { el: document.getElementById('select-panel-power'), out: null, unit: '' },
     panelsCount: { el: document.getElementById('range-panels-count'), out: document.getElementById('val-panels-count'), unit: ' szt.' },
+    insulation: { el: document.getElementById('range-insulation'), out: document.getElementById('val-insulation'), unit: '' },
 };
 const calcModeEl = document.getElementById('select-calc-mode');
 const CALC_STORAGE_KEY = 'solarBoilerCalcStateV1';
 let isRestoringCalculatorState = false;
 
-// ── 2. Sprawdź czy wszystkie elementy istnieją ──────
+// 2. Sprawdź czy wszystkie elementy istnieją
 // (jeśli któryś zwróci null w konsoli — masz błąd ID w HTML)
 
-// ── State for animations & Helpers ────────────────
+// State for animations Helpers
 let animationState = {
     previousExCost: 0,
     currentMode: 'boiler', // 'boiler' lub 'buffer'
@@ -31,6 +32,26 @@ const weatherState = {
     temperatureC: null,
     radiationWm2: null
 };
+
+const INSULATION_LEVELS = [
+    { label: 'Brak', cm: 0 },
+    { label: 'Podstawowa', cm: 5 },
+    { label: 'Dobra', cm: 10 },
+    { label: 'Standard Plus', cm: 12 },
+    { label: 'Bardzo dobra', cm: 15 },
+    { label: 'Premium', cm: 20 }
+];
+
+function getInsulationMeta(levelRaw) {
+    const maxLevel = INSULATION_LEVELS.length - 1;
+    const level = Number.isFinite(levelRaw) ? Math.max(0, Math.min(maxLevel, Math.round(levelRaw))) : 2;
+    return INSULATION_LEVELS[level] || INSULATION_LEVELS[2];
+}
+
+function formatInsulationValue(levelRaw) {
+    const meta = getInsulationMeta(levelRaw);
+    return `${meta.cm} cm (${meta.label})`;
+}
 
 function getTemperatureEfficiencyFactor(ambientTempC, radiationWm2) {
     if (!Number.isFinite(ambientTempC) || !Number.isFinite(radiationWm2)) return 1;
@@ -88,6 +109,75 @@ function rotatePoint(px, py, ox, oy, cos_t, sin_t) {
     return { x: ox + x_rotated, y: oy + y_rotated };
 }
 
+/**
+ * Draws a cooling curve based on standby losses.
+ * Standard loss: ~0.8 kWh / 100L / 24h
+ */
+function drawCoolingChart(vol, insulationLevel = 1) {
+    const canvas = document.getElementById('coolingChart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    
+    // Skalowanie dla ekranów High DPI i zapobieganie rozmyciu
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+
+    // Mapowanie poziomów izolacji na kWh strat / 100L / 24h
+    const lossFactors = [2.5, 1.5, 1.0, 0.8, 0.6, 0.4]; // kWh / 100L / 24h dla: 0,5,10,12,15,20 cm
+    const factor = lossFactors[insulationLevel] !== undefined ? lossFactors[insulationLevel] : 1.0;
+
+    const w = rect.width;
+    const h = rect.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const startTemp = 55;
+    const ambientTemp = 20;
+    // Straty postojowe w kWh na dobę
+    const standbyKwh = (vol / 100) * factor;
+    // Spadek temperatury: deltaT = Q / (m * c)
+    // Dla 24h:
+    const totalDeltaT = (standbyKwh * 3600) / (vol * 4.18);
+    
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(59, 130, 246, 0.4)'; // Niebieski
+    ctx.lineWidth = 2;
+    ctx.setLineDash([2, 2]);
+    ctx.moveTo(0, h * 0.2); // Linia startowa 55 stopni
+    
+    const points = 24;
+    ctx.beginPath();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = '#3b82f6';
+    
+    // Dynamiczny wsp??czynnik ch?odzenia k
+    const k = -Math.log((startTemp - totalDeltaT - ambientTemp) / (startTemp - ambientTemp)) / 24;
+
+    for(let i = 0; i <= points; i++) {
+        const t = i / points;
+        // Wyk?adniczy spadek temperatury
+        const currentTemp = ambientTemp + (startTemp - ambientTemp) * Math.exp(-k * i);
+        const x = t * w;
+        const y = h - ((currentTemp / startTemp) * h * 0.8);
+        
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Etykiety
+    ctx.fillStyle = 'rgba(28, 25, 23, 0.5)';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillText('55°C', 2, 10);
+    ctx.fillText('24h', w - 25, h - 5);
+    const endTemp = startTemp - totalDeltaT;
+    ctx.fillStyle = totalDeltaT > 10 ? '#ef4444' : '#3b82f6';
+    ctx.fillText(`-${totalDeltaT.toFixed(1)}°C`, w - 40, 15);
+}
+
 function saveCalculatorState() {
     if (isRestoringCalculatorState) return;
     try {
@@ -105,6 +195,7 @@ function saveCalculatorState() {
                 orient: inputs.orient.el?.value,
                 panelPower: inputs.panelPower.el?.value,
                 panelsCount: inputs.panelsCount.el?.value,
+                insulation: inputs.insulation.el?.value,
                 calcMode: calcModeEl?.value || 'live'
             }
         };
@@ -137,7 +228,8 @@ function restoreCalculatorState() {
                 tilt: inputs.tilt.el,
                 orient: inputs.orient.el,
                 panelPower: inputs.panelPower.el,
-                panelsCount: inputs.panelsCount.el
+                panelsCount: inputs.panelsCount.el,
+                insulation: inputs.insulation.el
             };
             Object.entries(valueMap).forEach(([key, el]) => {
                 if (el && state.values[key] !== undefined && state.values[key] !== null) {
@@ -181,7 +273,7 @@ function restoreCalculatorState() {
     }
 }
 
-// ── HEATER MANAGEMENT ───────────────────────────────
+// HEATER MANAGEMENT
 function renderHeaters() {
     const container = document.getElementById('heaters-list');
     if (!container) return;
@@ -273,14 +365,14 @@ function renderHeaters() {
 }
 
 document.getElementById('btn-add-heater')?.addEventListener('click', () => {
-    // Dodaj nową grzałkę (domyślnie 3kW)
+    // Dodaj now? grza?k? (domy?lnie 3kW)
     const defaultPower = 3.0;
     animationState.heaters.push(defaultPower);
     renderHeaters();
     calcUpdate();
 });
 
-// ── Globalne przyciski − / + dla statycznych suwaków ──
+// Globalne przyciski / + dla statycznych suwakw
 document.addEventListener('click', (e) => {
     const btn = e.target.closest('.range-btn[data-target]');
     if (!btn) return;
@@ -292,21 +384,21 @@ document.addEventListener('click', (e) => {
     const min  = parseFloat(slider.min);
     const max  = parseFloat(slider.max);
     const newVal = Math.min(max, Math.max(min, parseFloat(slider.value) + dir * step));
-    // Zaokrągl do precyzji stepu
+    // Zaokr?gl do precyzji stepu
     const precision = (step.toString().split('.')[1] || '').length;
     slider.value = newVal.toFixed(precision);
     slider.dispatchEvent(new Event('input', { bubbles: true }));
 });
 
-// ── 3. Funkcja obliczeniowa ─────────────────────────
+// 3. Funkcja obliczeniowa
 function calcUpdate() {
-    // Bezpieczne odczytanie — jeśli element nie istnieje, użyj domyślnej wartości
+    // Bezpieczne odczytanie ? je?li element nie istnieje, u?yj domy?lnej warto?ci
     const vol     = inputs.volume.el  ? +inputs.volume.el.value  : 180;
     
-    // Sumuj moc wszystkich grzałek
+    // Sumuj moc wszystkich grza?ek
     const heaterPower = animationState.heaters.reduce((sum, val) => sum + val, 0);
     
-    // Aktualizuj etykietę sumy
+    // Aktualizuj etykiet? sumy
     const totalLabel = document.getElementById('val-heater-total');
     if (totalLabel) totalLabel.textContent = heaterPower.toFixed(1) + ' kW';
 
@@ -317,27 +409,28 @@ function calcUpdate() {
     const orient  = inputs.orient.el  ? +inputs.orient.el.value  : 1.0;
     const panelPower = inputs.panelPower.el ? +inputs.panelPower.el.value : 450;
     const panelsCount = inputs.panelsCount.el ? +inputs.panelsCount.el.value : 7;
+    const insulationLevel = inputs.insulation.el ? +inputs.insulation.el.value : 1;
 
-    // Energia do podgrzania wody: Q = m × c × ΔT / 3600
-    // ~50L/os/dzień, ΔT = 35°C, c = 4.186 kJ/(kg·K)
+// Energia do podgrzania wody: Q = m — c — ÎT / 3600
+// 50L/os/dzie, ÎT = 35C, c = 4.186 kJ/(kgK)
     const litersPerDay    = persons * 50;
     const kwhUsagePerDay  = (litersPerDay * 4.186 * 35) / 3600;
 
-    // Straty postojowe: ~0.8 kWh / 100L / dobę
+    // Straty postojowe: ~0.8 kWh / 100L / dob?
     const standbyPerDay   = (vol / 100) * 0.8;
 
     const totalPerDay     = kwhUsagePerDay + standbyPerDay;
     const totalPerYear    = totalPerDay * 365;
     const costPerYear     = totalPerYear * price;
 
-    // Współczynnik wydajności w zależności od kąta nachylenia (uproszczony model dla Polski)
-    // Optimum ~35 stopni (1.0). Płasko (0) ~0.85. Pionowo (90) ~0.7.
+    // Wsp??czynnik wydajno?ci w zale?no?ci od k?ta nachylenia (uproszczony model dla Polski)
+    // Optimum ~35 stopni (1.0). P?asko (0) ~0.85. Pionowo (90) ~0.7.
     let tiltEff = 1.0;
     if (tilt < 30) tiltEff = 0.85 + (tilt / 30) * 0.15; // Wzrost od 0.85 do 1.0
     else if (tilt > 45) tiltEff = 1.0 - ((tilt - 45) / 45) * 0.3; // Spadek od 1.0 do 0.7
-    // (Pomiędzy 30 a 45 uznajemy za optimum = 1.0)
+    // (Pomi?dzy 30 a 45 uznajemy za optimum = 1.0)
 
-    // Aktualizacja wizualizacji kąta nachylenia (SVG)
+    // Aktualizacja wizualizacji k?ta nachylenia (SVG)
     const tiltShadow = document.getElementById('tilt-visual-shadow');
     const tiltVisual = document.getElementById('tilt-visual-panel');
     if (tiltVisual) {
@@ -378,17 +471,17 @@ function calcUpdate() {
         }
     }
 
-    // Pokrycie słoneczne: większy bojler = lepszy akumulator
+    // Pokrycie s?oneczne: wi?kszy bojler = lepszy akumulator
     const volumeFactor    = 0.78 + Math.min(0.17, (vol - 50) / 1500);
     const tempEffLive     = getTemperatureEfficiencyFactor(weatherState.temperatureC, weatherState.radiationWm2);
     const calcMode        = calcModeEl ? calcModeEl.value : 'live';
     const tempEff         = calcMode === 'standard' ? 1 : tempEffLive;
 
-    // Logika uwzględniająca liczbę paneli:
+    // Logika uwzgl?dniaj?ca liczb? paneli:
     const totalPowerKW = (panelsCount * panelPower) / 1000;
-    // Szacowana produkcja w słoneczny dzień (kWh) uwzględniająca warunki montażowe
+    // Szacowana produkcja w s?oneczny dzie? (kWh) uwzgl?dniaj?ca warunki monta?owe
     const productionPotential = totalPowerKW * 4.2 * tiltEff * orient * tempEff;
-    // Czy moc paneli wystarcza na zagrzanie wody w ciągu dnia?
+    // Czy moc paneli wystarcza na zagrzanie wody w ci?gu dnia?
     const powerFactor = Math.min(1, productionPotential / totalPerDay);
     const solarCoverage = (sunny / 365) * volumeFactor * powerFactor;
 
@@ -397,7 +490,7 @@ function calcUpdate() {
     const investmentCost  = 3200;
     const paybackYears    = saving > 0 ? investmentCost / saving : 0;
 
-    // ── Aktualizacja DOM (z null-check) ──────────────
+// Aktualizacja DOM (z null-check)
     const set = (id, val) => {
         const el = document.getElementById(id);
         if (el) el.textContent = val;
@@ -430,7 +523,7 @@ function calcUpdate() {
     set('mobile-saving',  Math.round(saving)       + ' zł');
     set('mobile-payback', paybackYears > 0 ? paybackYears.toFixed(1) + ' lat' : '—');
     
-    // ── Globalna aktualizacja ceny prądu i wyliczeń zależnych ──
+// Globalna aktualizacja ceny prdu i wylicze zalenych
     const priceFmt = price.toFixed(2).replace('.', ',');
 
     // 1. Hero Section
@@ -441,17 +534,17 @@ function calcUpdate() {
     const bannerPriceEl = document.getElementById('banner-price-val');
     if (bannerPriceEl) bannerPriceEl.textContent = priceFmt + ' zł/kWh brutto';
 
-    // 3. Nagłówek sekcji Porównanie
+    // 3. Nag??wek sekcji Por?wnanie
     const cmpSubtitlePrice = document.getElementById('cmp-subtitle-price');
     if (cmpSubtitlePrice) cmpSubtitlePrice.textContent = priceFmt + ' zł/kWh';
 
-    // 4. Wykres źródeł energii (pasek prądu)
+// 4. Wykres şrde energii (pasek prdu)
     const energyPriceElec = document.getElementById('energy-price-electric');
     if (energyPriceElec) energyPriceElec.textContent = priceFmt + ' zł';
     
     const energyBarElec = document.getElementById('energy-bar-electric');
     if (energyBarElec) {
-        // Skalowanie paska: 1.50 zł = 100% (zwiększona skala bo ceny surowców mogą być wysokie)
+        // Skalowanie paska: 1.50 zł = 100% (zwi?kszona skala bo ceny surowc?w mog? by? wysokie)
         const widthPct = Math.min(100, (price / 1.50) * 100);
         energyBarElec.style.width = widthPct + '%';
         
@@ -461,13 +554,13 @@ function calcUpdate() {
         if(energyBarElec.parentElement) energyBarElec.parentElement.setAttribute('data-tooltip', tip);
     }
 
-    // 5. Tabela Porównawcza (Symulacja 10 lat)
-    // Koszt roczny sieci = costPerYear (wyliczone wyżej w kalkulatorze)
+    // 5. Tabela Por?wnawcza (Symulacja 10 lat)
+    // Koszt roczny sieci = costPerYear (wyliczone wy?ej w kalkulatorze)
     const costNetwork10y = costPerYear * 10;
     
-    // Koszt roczny solarny = Koszt sieci - Oszczędność
+    // Koszt roczny solarny = Koszt sieci - Oszcz?dno??
     const costSolarYear = Math.max(0, costPerYear - saving);
-    const investConst = 3500; // Stały koszt inwestycji do symulacji w tabeli
+    const investConst = 3500; // Sta?y koszt inwestycji do symulacji w tabeli
     const costSolar10y = investConst + (costSolarYear * 10);
 
     const fmtMoney = (n) => Math.round(n).toLocaleString('pl-PL').replace(/\u00A0/g,' ');
@@ -506,14 +599,14 @@ function calcUpdate() {
             `<div class="factor-row"><span>Końcowe pokrycie</span><strong>${pct(solarCoverage)}</strong></div>`;
     }
 
-    // ── Aktualizacja sekcji "Przykład obliczeniowy" ──
-    // Obliczamy energię potrzebną do podgrzania wody o 45 stopni (10 -> 55)
-    // Wzór: Litry * 4.186 * DeltaT / 3600 = kWh
+// Aktualizacja sekcji "Przykad obliczeniowy"
+    // Obliczamy energi? potrzebn? do podgrzania wody o 45 stopni (10 -> 55)
+    // Wz?r: Litry * 4.186 * DeltaT / 3600 = kWh
     const exEnergy = (vol * 4.186 * 45) / 3600;
     const exCost   = exEnergy * price;
 
     const exTitle = document.getElementById('ex-title');
-    if (exTitle) exTitle.textContent = `Przykład: Ile kosztuje jednorazowe podgrzanie bojlera ${vol}L?`;
+    if (exTitle) exTitle.textContent = `Przykład: Ile kosztuje jednorazowe podgrzanie bojlera ${vol} L?`;
 
     const exDesc = document.getElementById('ex-desc');
     if (exDesc) exDesc.innerHTML = `Aby podgrzać ${vol} litrów wody od 10°C do 55°C, potrzeba <strong>~${exEnergy.toFixed(1)} kWh</strong> energii. Zobacz, ile to kosztuje:`;
@@ -525,22 +618,22 @@ function calcUpdate() {
     if (exCostElec) {
         animateValue(exCostElec, animationState.previousExCost, exCost, 600, { prefix: '~', suffix: ' zł', decimals: 2 });
     }
-    animationState.previousExCost = exCost; // Zapisz wartość na następny raz
+    animationState.previousExCost = exCost; // Zapisz warto?? na nast?pny raz
 
-    // ── Nowe obliczenia: Czas i Wydajność ──
+// Nowe obliczenia: Czas i Wydajno
 
-    // Rekomendacja mocy grzałki (np. 1kW na 60L dla optymalnego czasu)
+    // Rekomendacja mocy grza?ki (np. 1kW na 60L dla optymalnego czasu)
     const recPower = (vol / 60).toFixed(1);
     const recEl = document.getElementById('rec-heater');
     if (recEl) recEl.textContent = `${recPower} kW`;
 
-    // Rekomendowana ilość paneli (dla ZALECANEJ mocy grzałki - zależnej od pojemności)
-    // Używamy parseFloat(recPower), aby rekomendacja paneli była spójna z rekomendacją grzałki powyżej
+    // Rekomendowana ilo?? paneli (dla ZALECANEJ mocy grza?ki - zale?nej od pojemno?ci)
+    // U?ywamy parseFloat(recPower), aby rekomendacja paneli by?a sp?jna z rekomendacj? grza?ki powy?ej
     const panelsCountCalc = Math.ceil((parseFloat(recPower) * 1000) / panelPower);
     const recPanelsCalcEl = document.getElementById('rec-panels-calc');
     if (recPanelsCalcEl) recPanelsCalcEl.textContent = `${panelsCountCalc} szt. (${panelPower}W)`;
 
-    // Walidacja mocy grzałki (Ostrzeżenie w kalkulatorze)
+    // Walidacja mocy grza?ki (Ostrze?enie w kalkulatorze)
     const heaterWarningEl = document.getElementById('heater-warning');
     if (heaterWarningEl) {
         if (heaterPower < parseFloat(recPower)) {
@@ -555,7 +648,7 @@ function calcUpdate() {
     const timeLabel = document.getElementById('ex-time-label');
     if (timeLabel) timeLabel.textContent = `Czas nagrzewania (razem ${heaterPower.toFixed(1)} kW)`;
     
-    // 1. Czas nagrzewania (dla wybranej mocy grzałki)
+    // 1. Czas nagrzewania (dla wybranej mocy grza?ki)
     const timeHoursTotal = exEnergy / heaterPower;
     const timeH = Math.floor(timeHoursTotal);
     const timeM = Math.round((timeHoursTotal - timeH) * 60);
@@ -563,12 +656,12 @@ function calcUpdate() {
     const exTime = document.getElementById('ex-time');
     if (exTime) exTime.textContent = `${timeH}h ${timeM}min`;
 
-    // 1b. Sugerowana ilość paneli
+    // 1b. Sugerowana ilo?? paneli
     const panelsNeeded = Math.ceil((heaterPower * 1000) / panelPower);
     const exPanels = document.getElementById('ex-panels');
     if (exPanels) exPanels.textContent = `${panelsNeeded} szt. (${panelPower}W)`;
 
-    // 1c. Info o dużej mocy (zielony komunikat)
+    // 1c. Info o du?ej mocy (zielony komunikat)
     const powerNote = document.getElementById('ex-power-note');
     if (powerNote) {
         if (heaterPower > parseFloat(recPower)) {
@@ -580,32 +673,32 @@ function calcUpdate() {
         }
     }
 
-    // 2. Ilość pryszniców (uwzględniamy orientację bojlera)
-    const isVertical = animationState.boilerOrientation === 'vertical';
+    // 2. Ilo?? prysznic?w (uwzgl?dniamy orientacj? bojlera)
+        const isVertical = animationState.boilerOrientation === 'vertical';
     const usableVolumeFactor = isVertical ? 0.90 : 0.65; // 90% dla pionowego, 65% dla poziomego
     const usableVolume = vol * usableVolumeFactor;
     const showersCount = Math.floor(usableVolume / 40);
     const exShowers = document.getElementById('ex-showers');
     if (exShowers) exShowers.textContent = `ok. ${showersCount} osób`;
 
-    // 3. Kontekst użycia (Osoby vs Pojemność)
+    // 3. Kontekst użycia (osoby vs pojemność)
     const dailyNeed = persons * 50;
     const cyclesVal = dailyNeed / vol;
-    const cycles    = cyclesVal.toFixed(1);
-    
+    const cycles = cyclesVal.toFixed(1);
+
     const exUsageNote = document.getElementById('ex-usage-note');
     if (exUsageNote) {
-        exUsageNote.className = 'example-usage-note'; // Reset klasy
+        exUsageNote.className = 'example-usage-note';
         let noteHTML = '';
         if (cyclesVal > 2.0) {
             exUsageNote.classList.add('warning');
-            noteHTML = `⚠️ <strong>Uwaga: Bojler może być za mały!</strong><br>Dla ${persons} osób potrzeba ok. ${dailyNeed}L wody. Przy tej pojemności trzeba ją grzać aż <strong>${cycles} razy</strong> na dobę.`;
+            noteHTML = `⚠️ <strong>Uwaga: bojler może być za mały!</strong><br>Dla ${persons} osób potrzeba ok. ${dailyNeed} L wody. Przy tej pojemności trzeba ją grzać aż <strong>${cycles} razy</strong> na dobę.`;
         } else {
-            noteHTML = `Dla <strong>${persons} osób</strong> potrzeba ok. <strong>${dailyNeed}L</strong> ciepłej wody na dobę. `;
+            noteHTML = `Dla <strong>${persons} osób</strong> potrzeba ok. <strong>${dailyNeed} L</strong> ciepłej wody na dobę. `;
             if (dailyNeed <= vol) {
-                noteHTML += `Pojemność bojlera <strong>(${vol}L)</strong> jest wystarczająca na cały dzień bez dogrzewania.`;
+                noteHTML += `Pojemność bojlera <strong>(${vol} L)</strong> jest wystarczająca na cały dzień bez dogrzewania.`;
             } else {
-                noteHTML += `Przy pojemności <strong>${vol}L</strong> woda musi zostać podgrzana (wymieniona) ok. <strong>${cycles} razy</strong> w ciągu doby.`;
+                noteHTML += `Przy pojemności <strong>${vol} L</strong> wodę trzeba podgrzać (wymienić) ok. <strong>${cycles} razy</strong> w ciągu doby.`;
             }
         }
         exUsageNote.innerHTML = noteHTML;
@@ -618,25 +711,35 @@ function calcUpdate() {
         else stratVisual.classList.add('horizontal');
     }
 
+    const insulationTexts = [
+        'Przy 0 cm izolacji ciepło ucieka bardzo szybko i rano woda może być już chłodna.',
+        'Przy 5 cm izolacji straty nadal są duże, ale zauważalnie mniejsze niż bez izolacji.',
+        'Przy 10 cm izolacji bojler dobrze trzyma temperaturę przez noc w typowych warunkach.',
+        'Przy 12 cm izolacji straty są niskie i zwykle wystarcza to dla komfortowego użytku.',
+        'Przy 15 cm izolacji bojler zachowuje ciepło bardzo dobrze, ograniczając dogrzewanie rano.',
+        'Przy 20 cm izolacji bojler działa jak termos i nocne straty są minimalne.'
+    ];
+    const insulationNote = insulationTexts[insulationLevel] || insulationTexts[2];
+
     const stratInfoEl = document.getElementById('stratification-info');
     if (stratInfoEl) {
         if (isVertical) {
-            stratInfoEl.innerHTML = `<strong>Ważna uwaga o warstwach (stratyfikacji):</strong> W pionowym bojlerze woda naturalnie układa się warstwami — najcieplejsza gromadzi się na górze. Dzięki temu masz dostęp do gorącej wody, nawet gdy słońce ogrzało tylko górną część zbiornika. Pełne "naładowanie" całego bojlera nie jest konieczne do komfortowego użytkowania.`;
+            stratInfoEl.innerHTML = `<strong>Ważna uwaga o warstwach (stratyfikacji):</strong> W pionowym bojlerze woda układa się warstwami — najcieplejsza jest na górze. Dzięki temu masz dostęp do gorącej wody szybciej.<br><br>💡 <strong>Zachowanie w nocy:</strong> ${insulationNote}`;
             stratInfoEl.style.color = '';
             stratInfoEl.style.background = '';
             stratInfoEl.style.padding = '';
             stratInfoEl.style.borderRadius = '';
             stratInfoEl.style.border = '';
-        } else { // Horizontal
+        } else {
             if (vol <= 60) {
-                stratInfoEl.innerHTML = `⚠️ <strong>KRYTYCZNA UWAGA:</strong> Poziomy bojler o tak małej pojemności (<strong>${vol}L</strong>) jest <strong>bardzo nieefektywny</strong>. Mieszanie się wody sprawi, że ilość dostępnej gorącej wody będzie znikoma (realnie ${Math.round(usableVolume)}L). Zdecydowanie zalecany jest bojler pionowy.`;
+                stratInfoEl.innerHTML = `⚠️ <strong>Krytyczna uwaga:</strong> Poziomy bojler o tak małej pojemności (<strong>${vol} L</strong>) jest <strong>bardzo nieefektywny</strong>. Mieszanie wody sprawi, że ilość dostępnej gorącej wody będzie znikoma.<br><br>🚨 <strong>Straty:</strong> ${insulationNote}`;
                 stratInfoEl.style.color = '#b91c1c';
                 stratInfoEl.style.background = 'rgba(239, 68, 68, 0.1)';
                 stratInfoEl.style.padding = '12px';
                 stratInfoEl.style.borderRadius = '8px';
                 stratInfoEl.style.border = '1px solid rgba(239, 68, 68, 0.2)';
             } else {
-                stratInfoEl.innerHTML = `<strong>Uwaga dla bojlera poziomego:</strong> W takim bojlerze zjawisko stratyfikacji (układania warstw) jest znacznie słabsze. Ciepła woda szybciej miesza się z zimną przy poborze, co <strong>zmniejsza ilość dostępnej "użytkowej" gorącej wody</strong>. Efektywna pojemność jest niższa niż w bojlerze pionowym o tym samym litrażu.`;
+                stratInfoEl.innerHTML = `<strong>Uwaga dla bojlera poziomego:</strong> W takim bojlerze zjawisko warstw jest słabsze. Woda szybciej się miesza, co zmniejsza ilość dostępnej „użytkowej” gorącej wody.<br><br>💡 <strong>Zachowanie w nocy:</strong> ${insulationNote}`;
                 stratInfoEl.style.color = '';
                 stratInfoEl.style.background = '';
                 stratInfoEl.style.padding = '';
@@ -647,6 +750,8 @@ function calcUpdate() {
     }
 
     // -- Update Recommended Set Box --
+    drawCoolingChart(vol, insulationLevel);
+
     const recTotalPowerW = panelsCountCalc * panelPower;
     const recTotalPowerKWp = (recTotalPowerW / 1000).toFixed(2);
 
@@ -673,7 +778,7 @@ function calcUpdate() {
     saveCalculatorState();
 }
 
-// ── 4. Eventy na suwakach ───────────────────────────
+// 4. Eventy na suwakach
 Object.entries(inputs).forEach(([key, obj]) => {
     if (!obj.el) {
         console.warn('Kalkulator: brak suwaka dla klucza:', key);
@@ -705,9 +810,13 @@ Object.entries(inputs).forEach(([key, obj]) => {
     obj.el.addEventListener('input', () => {
         const val = parseFloat(obj.el.value);
         if (obj.out) {
+            if (key === 'insulation') {
+                obj.out.textContent = formatInsulationValue(val);
+            } else {
             obj.out.textContent = (key === 'price')
                 ? val.toFixed(2) + obj.unit
                 : val + obj.unit;
+            }
         }
         calcUpdate();
     });
@@ -715,13 +824,17 @@ Object.entries(inputs).forEach(([key, obj]) => {
     // Inicjalne ustawienie etykiety
     if (obj.out && obj.el.value !== undefined) {
         const val = parseFloat(obj.el.value);
-        obj.out.textContent = (key === 'price')
-            ? val.toFixed(2) + obj.unit
-            : val + obj.unit;
+        if (key === 'insulation') {
+            obj.out.textContent = formatInsulationValue(val);
+        } else {
+            obj.out.textContent = (key === 'price')
+                ? val.toFixed(2) + obj.unit
+                : val + obj.unit;
+        }
     }
 });
 
-// Animacja chlupotania wody przy zmianie pojemności
+// Animacja chlupotania wody przy zmianie pojemno?ci
 const volumeSlider = document.getElementById('range-volume');
 if (volumeSlider) {
     volumeSlider.addEventListener('input', () => {
@@ -731,7 +844,7 @@ if (volumeSlider) {
             void waterEl.offsetWidth; // Trigger reflow (restart animacji)
             waterEl.classList.add('sloshing');
             
-            // Usuń klasę po zakończeniu animacji (0.6s w CSS)
+            // Usu? klas? po zako?czeniu animacji (0.6s w CSS)
             setTimeout(() => {
                 waterEl.classList.remove('sloshing');
             }, 600);
@@ -739,7 +852,7 @@ if (volumeSlider) {
     });
 }
 
-// ── MODE SWITCH LOGIC ───────────────────────────────
+// MODE SWITCH LOGIC
 document.querySelectorAll('.mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         // UI Update
@@ -755,12 +868,12 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
             // Ustawienia dla Bufora
             volSlider.max = 2000;
             volSlider.step = 50;
-            volSlider.value = 1000; // Domyślnie 1000L
+            volSlider.value = 1000; // Domy?lnie 1000L
             
-            // Domyślne grzałki dla bufora (zgodnie z prośbą: 3kW + 4kW)
+            // Domy?lne grza?ki dla bufora (zgodnie z pro?b?: 3kW + 4kW)
             animationState.heaters = [3.0, 4.0];
             
-            // Zaktualizuj etykietę
+            // Zaktualizuj etykiet?
             document.querySelector('label[for="range-volume"]').innerHTML = 'Pojemność bufora <span id="val-volume">1000 L</span>';
             inputs.volume.out = document.getElementById('val-volume'); // Re-bind output
 
@@ -770,7 +883,7 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
             volSlider.step = 10;
             volSlider.value = 180;
             
-            // Domyślna grzałka dla bojlera
+            // Domy?lna grza?ka dla bojlera
             animationState.heaters = [3.0];
 
             document.querySelector('label[for="range-volume"]').innerHTML = 'Pojemność bojlera <span id="val-volume">180 L</span>';
@@ -792,7 +905,24 @@ document.querySelectorAll('.orientation-btn').forEach(btn => {
     });
 });
 
-// Obsługa opcji "Bojler z wężownicą"
+// Przycisk optymalizacji izolacji
+document.getElementById('btn-optimize-insulation')?.addEventListener('click', () => {
+    const persons = inputs.persons.el ? +inputs.persons.el.value : 4;
+    const vol = inputs.volume.el ? +inputs.volume.el.value : 180;
+    
+    // Logika: większe zapotrzebowanie = grubsza izolacja
+    let level = 2; // 10 cm
+    if (persons >= 3 || vol >= 150) level = 3; // 12 cm
+    if (persons >= 4 || vol >= 200) level = 4; // 15 cm
+    if (persons >= 5 || vol >= 250) level = 5; // 20 cm
+    
+    if (inputs.insulation.el) {
+        inputs.insulation.el.value = level;
+        inputs.insulation.el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+});
+
+// Obs?uga opcji "Bojler z w??ownic?"
 const coilCheck = document.getElementById('check-coil');
 const coilInfo = document.getElementById('coil-info');
 
@@ -807,17 +937,17 @@ if (coilCheck && coilInfo) {
     });
 }
 
-// ── 5. ★ KLUCZOWE: wywołaj przy starcie ─────────────
-renderHeaters(); // Inicjalizacja grzałek
+// 5. KLUCZOWE: wywoaj przy starcie
+renderHeaters(); // Inicjalizacja grza?ek
 if (!restoreCalculatorState()) {
     calcUpdate();
 }
 
-// ── Przycisk automatycznego doboru ───────────────────
+// Przycisk automatycznego doboru
 const autoSetBtn = document.getElementById('btn-auto-set');
 if (autoSetBtn) {
     autoSetBtn.addEventListener('click', () => {
-        // Optymalne wartości dla 4-osobowej rodziny
+        // Optymalne warto?ci dla 4-osobowej rodziny
         const optimalValues = {
             persons: 4,
             volume: 200,
@@ -828,7 +958,7 @@ if (autoSetBtn) {
         
         // TODO: Reset mode to boiler if needed, or handle buffer auto-set
 
-        // Ustaw wartości i wywołaj zdarzenie 'input' dla każdego suwaka/selecta
+        // Ustaw warto?ci i wywo?aj zdarzenie 'input' dla ka?dego suwaka/selecta
         Object.entries(optimalValues).forEach(([key, value]) => {
             if (inputs[key] && inputs[key].el) {
                 inputs[key].el.value = value;
@@ -843,7 +973,7 @@ if (autoSetBtn) {
     });
 }
 
-// ── FORM ─────────────────────────────────────────────
+// FORM
 const contactForm = document.getElementById('contact-form');
 if (contactForm) {
     const phoneInput = contactForm.querySelector('input[type="tel"]');
@@ -864,7 +994,7 @@ if (contactForm) {
     contactForm.addEventListener('submit', function(e) {
         e.preventDefault();
         
-        const phoneVal = phoneInput ? phoneInput.value.replace(/\D/g, '') : ''; // Usuwa wszystko co nie jest cyfrą
+        const phoneVal = phoneInput ? phoneInput.value.replace(/\D/g, '') : ''; // Usuwa wszystko co nie jest cyfr?
 
         if (phoneVal.length !== 9) {
             alert('Proszę podać poprawny numer telefonu (9 cyfr).');
@@ -894,11 +1024,11 @@ if (contactForm) {
         })
         .then(response => {
             if (response.ok) {
-                // Ukryj formularz i pokaż podziękowanie
+                // Ukryj formularz i poka? podzi?kowanie
                 const originalChildren = Array.from(this.children);
                 originalChildren.forEach(child => child.style.display = 'none');
                 
-                // Ukryj status pod formularzem jeśli istnieje
+                // Ukryj status pod formularzem je?li istnieje
                 if(status) status.style.display = 'none';
 
                 const successDiv = document.createElement('div');
@@ -944,7 +1074,7 @@ if (clearCalcStateBtn) {
     });
 }
 
-// ── FAQ ───────────────────────────────────────────────
+// FAQ
 document.querySelectorAll('.faq-item').forEach(item => {
     item.addEventListener('click', () => {
         const isOpen = item.classList.contains('open');
@@ -953,7 +1083,7 @@ document.querySelectorAll('.faq-item').forEach(item => {
     });
 });
 
-// ── SMOOTH SCROLL ─────────────────────────────────────
+// SMOOTH SCROLL
 document.querySelectorAll('a[href^="#"]').forEach(a => {
     a.addEventListener('click', e => {
         e.preventDefault();
@@ -962,7 +1092,7 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
     });
 });
 
-// ── ANIMATION ON SCROLL ───────────────────────────────
+// ANIMATION ON SCROLL
 const observerOptions = {
     root: null,
     // Trigger reveal a bit earlier to avoid "empty gap" while scrolling
@@ -983,7 +1113,7 @@ document.querySelectorAll('.fade-in-section').forEach(section => {
     observer.observe(section);
 });
 
-// ── BACK TO TOP ───────────────────────────────────────
+// BACK TO TOP
 const backToTopBtn = document.getElementById('back-to-top');
 const bgDimmerWrap = document.getElementById('bg-dimmer-wrapper');
 
@@ -1008,7 +1138,7 @@ if (backToTopBtn) {
     });
 }
 
-// ── SECTION BACKGROUND DIMMER ─────────────────────────
+// SECTION BACKGROUND DIMMER
 const bgDimmer = document.getElementById('bg-dimmer');
 const dimmerLabel = document.getElementById('dimmer-label');
 if (bgDimmer) {
@@ -1034,10 +1164,10 @@ if (bgDimmer) {
         originals.set(el, getRgb(el));
     });
 
-    // Target BG color: Ciepły szary (przyjemny dla oka "papier")
+    // Target BG color: Ciep?y szary (przyjemny dla oka "papier")
     const targetColor = [200, 196, 188]; 
 
-    // Interpolacja kolorów (linear interpolation)
+    // Interpolacja kolor?w (linear interpolation)
     const lerp = (start, end, t) => Math.round(start + (end - start) * t);
     const setRgb = (el, r, g, b) => el.style.color = `rgb(${r},${g},${b})`;
 
@@ -1051,7 +1181,7 @@ if (bgDimmer) {
             const start = originals.get(el);
             if (!start) return;
 
-            // Tło
+            // T?o
             const r = lerp(start[0], targetColor[0], factor);
             const g = lerp(start[1], targetColor[1], factor);
             const b = lerp(start[2], targetColor[2], factor);
@@ -1062,11 +1192,11 @@ if (bgDimmer) {
             const updateColor = (selector, rStart, gStart, bStart, rEnd, gEnd, bEnd) => {
                 const items = el.querySelectorAll(selector);
                 items.forEach(item => {
-                    // Pomiń elementy wewnątrz widgetu solarnego (on ma zawsze ciemne tło)
+                    // Pomi? elementy wewn?trz widgetu solarnego (on ma zawsze ciemne t?o)
                     if (item.closest('.solar-widget')) return;
 
                     if (factor <= 0) {
-                        item.style.removeProperty('color'); // Przywróć CSS
+                        item.style.removeProperty('color'); // Przywr?? CSS
                     } else {
                         setRgb(item, 
                             lerp(rStart, rEnd, factor), 
@@ -1080,7 +1210,7 @@ if (bgDimmer) {
             // 1. Szary tekst (.section-sub) -> Czarny (0,0,0)
             updateColor('.section-sub', 120, 113, 108, 0, 0, 0);
 
-            // 2. Jasny pomarańczowy (--sun) -> Atramentowy #1C1917
+            // 2. Jasny pomara?czowy (--sun) -> Atramentowy #1C1917
             const sunSelectors = [
                 '.section-label',
                 '.field label span',
@@ -1094,7 +1224,7 @@ if (bgDimmer) {
             ].join(',');
             updateColor(sunSelectors, 245, 158, 11, 28, 25, 23);
 
-            // 3. Ciemny pomarańczowy (--sun-deep) -> Atramentowy #1C1917
+            // 3. Ciemny pomara?czowy (--sun-deep) -> Atramentowy #1C1917
             // Dotyczy m.in. .btn-auto
             const sunDeepSelectors = '.btn-auto';
             updateColor(sunDeepSelectors, 217, 119, 6, 28, 25, 23);
@@ -1102,7 +1232,7 @@ if (bgDimmer) {
     });
 }
 
-// ── COOKIE CONSENT ───────────────────────────────────
+// COOKIE CONSENT
 const initCookieConsent = () => {
     if (!localStorage.getItem('cookieConsent')) {
         const banner = document.createElement('div');
@@ -1111,7 +1241,7 @@ const initCookieConsent = () => {
             <p>Strona korzysta z plików cookies w celu realizacji usług. Możesz określić warunki przechowywania lub dostępu do cookies w Twojej przeglądarce.</p>
             <div class="cookie-actions">
                 <button id="cookie-reject" class="cookie-btn cookie-reject">Odrzuć</button>
-                <button id="cookie-accept" class="cookie-btn cookie-accept">Akceptuję</button>
+                <button id="cookie-accept" class="cookie-btn cookie-accept">Akceptuj</button>
             </div>
         `;
         document.body.appendChild(banner);
@@ -1127,7 +1257,7 @@ const initCookieConsent = () => {
 };
 initCookieConsent();
 
-// ── PWA INSTALLATION ─────────────────────────────────
+// PWA INSTALLATION
 let deferredPrompt;
 const installBtn = document.getElementById('install-btn');
 
@@ -1161,7 +1291,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('./service-worker.js');
 }
 
-// ── SHARE BUTTON ─────────────────────────────────────
+// SHARE BUTTON
 const shareBtn = document.getElementById('share-btn');
 if (shareBtn) {
     shareBtn.addEventListener('click', () => {
@@ -1177,7 +1307,7 @@ if (shareBtn) {
     });
 }
 
-// ── MAP INTERACTIVITY ────────────────────────────────
+// MAP INTERACTIVITY
 const mapTags = document.querySelectorAll('.area-tags span');
 const mapDots = document.querySelectorAll('.city-dot');
 const mapLabel = document.getElementById('map-city-label');
@@ -1231,26 +1361,26 @@ if (mapContainer) {
     });
 }
 
-// ── SOLAR WIDGET ─────────────────────────────────────
+// SOLAR WIDGET
 const LAT        = 53.1789;  // szerokość geograficzna (Łomża)
 const LNG        = 22.0593;  // długość geograficzna  (Łomża)
-const PEAK_POWER = 3150;     // moc szczytowa Twoich paneli w Watach (7 × 450W)
+const PEAK_POWER = 3150;     // moc szczytowa Twoich paneli w Watach (7 x 450W)
 let solarState   = null;     // Przechowywanie danych do interakcji
 let currentForecastView = 'solar'; // 'solar' lub 'temp'
-let solarTimeout;            // Timer do automatycznego odświeżania
+let solarTimeout;            // Timer do automatycznego od?wie?ania
 
 function getSeason(date) {
     const m = date.getMonth() + 1, d = date.getDate();
     if ((m === 3 && d >= 20) || m === 4 || m === 5 || (m === 6 && d < 21))
         return { label: '🌱 Wiosna', factor: 0.80 };
     if ((m === 6 && d >= 21) || m === 7 || m === 8 || (m === 9 && d < 23))
-        return { label: '☀ Lato',   factor: 1.00 };
+        return { label: '☀️ Lato',   factor: 1.00 };
     if ((m === 9 && d >= 23) || m === 10 || m === 11 || (m === 12 && d < 22))
         return { label: '🍂 Jesień', factor: 0.55 };
-    return { label: '❄ Zima', factor: 0.30 };
+    return { label: '❄️ Zima', factor: 0.30 };
 }
 
-// ── Helper: fetch z timeoutem (8 sekund) ─────────────
+// Helper: fetch z timeoutem (8 sekund)
 function fetchWithTimeout(url, timeoutMs = 8000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -1258,17 +1388,17 @@ function fetchWithTimeout(url, timeoutMs = 8000) {
         .finally(() => clearTimeout(timer));
 }
 
-// ── WAŻNA POPRAWKA: formatTime ───────────────────────
+// WANA POPRAWKA: formatTime
 // Open-Meteo zwraca sunrise/sunset jako czas LOKALNY (nie UTC!)
 function formatTime(input) {
     if (!input) return '--:--';
 
-    // 1. Jeśli to liczba (timestamp z hovera na wykresie)
+    // 1. Je?li to liczba (timestamp z hovera na wykresie)
     if (typeof input === 'number') {
         return new Date(input).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
     }
 
-    // 2. Jeśli to string ISO z API (np. "2026-02-16T07:15")
+    // 2. Je?li to string ISO z API (np. "2026-02-16T07:15")
     const str = String(input);
     const parts = str.split('T');
     if (parts.length > 1) {
@@ -1277,57 +1407,572 @@ function formatTime(input) {
     return '--:--';
 }
 
-// ── SOLAR WIDGET: Gwiazdki nocne ────────────────────────────
-const starsData = [];
-let starsAnimFrame = null;
+// SOLAR WIDGET: Gwiazdki nocne
+const SKY_OBSERVER_LOMZA = { lat: 53.1781, lon: 22.0596 }; // deg, E dodatnie
+const SKY_CATALOG_STARS_URL = './stars.6.json';
+const SKY_CATALOG_CONSTELLATIONS_URL = './constellations.lines.json';
 
-function initStars() {
+const starsData = { stars: [], lines: [] };
+let starsAnimFrame = null; // zostawione dla kompatybilnosci ze starym kodem
+let starsUpdateTimer = null;
+let skyCatalogsPromise = null;
+
+function clamp(n, min, max) { return Math.min(max, Math.max(min, n)); }
+function deg2rad(d) { return (d * Math.PI) / 180; }
+function rad2deg(r) { return (r * 180) / Math.PI; }
+function normDeg360(d) { d = d % 360; return d < 0 ? d + 360 : d; }
+function normDeg180(d) { d = ((d + 180) % 360) - 180; return d < -180 ? d + 360 : d; }
+
+function julianDate(date) {
+    return date.getTime() / 86400000 + 2440587.5;
+}
+
+function gmstDegrees(date) {
+    const jd = julianDate(date);
+    const T = (jd - 2451545.0) / 36525.0;
+    const gmst = 280.46061837
+        + 360.98564736629 * (jd - 2451545.0)
+        + 0.000387933 * T * T
+        - (T * T * T) / 38710000.0;
+    return normDeg360(gmst);
+}
+
+function raDecToAltAz(raDeg, decDeg, date, latDeg, lonDeg) {
+    const lat = deg2rad(latDeg);
+    const dec = deg2rad(decDeg);
+    const lst = normDeg360(gmstDegrees(date) + lonDeg);
+    const H = deg2rad(normDeg180(lst - normDeg360(raDeg)));
+
+    const sinAlt = Math.sin(dec) * Math.sin(lat) + Math.cos(dec) * Math.cos(lat) * Math.cos(H);
+    const alt = Math.asin(clamp(sinAlt, -1, 1));
+
+    // Azymut od N w kierunku E
+    const cosAlt = Math.cos(alt);
+    const sinAz = (-Math.cos(dec) * Math.sin(H)) / Math.max(1e-9, cosAlt);
+    const cosAz = (Math.sin(dec) - Math.sin(alt) * Math.sin(lat)) / Math.max(1e-9, (cosAlt * Math.cos(lat)));
+    let az = Math.atan2(sinAz, cosAz);
+    if (az < 0) az += Math.PI * 2;
+
+    return { altRad: alt, azRad: az };
+}
+
+function bvToRgb(bvRaw) {
+    const bv = Number.isFinite(bvRaw) ? bvRaw : parseFloat(bvRaw);
+    if (!Number.isFinite(bv)) return [255, 255, 255];
+    if (bv <= -0.2) return [180, 200, 255];
+    if (bv <= 0.0) {
+        const t = (bv + 0.2) / 0.2;
+        return [Math.round(180 + (210 - 180) * t), Math.round(200 + (220 - 200) * t), 255];
+    }
+    if (bv <= 0.6) {
+        const t = bv / 0.6;
+        return [255, Math.round(255 - (255 - 245) * t), Math.round(255 - (255 - 230) * t)];
+    }
+    if (bv <= 1.5) {
+        const t = (bv - 0.6) / 0.9;
+        return [255, Math.round(245 - (245 - 200) * t), Math.round(230 - (230 - 160) * t)];
+    }
+    const t = clamp((bv - 1.5) / 1.2, 0, 1);
+    return [255, Math.round(200 - 60 * t), Math.round(160 - 80 * t)];
+}
+
+async function loadSkyCatalogs() {
+    if (skyCatalogsPromise) return skyCatalogsPromise;
+    skyCatalogsPromise = (async () => {
+        const [starsRes, constRes] = await Promise.all([
+            fetch(SKY_CATALOG_STARS_URL, { cache: 'force-cache' }),
+            fetch(SKY_CATALOG_CONSTELLATIONS_URL, { cache: 'force-cache' })
+        ]);
+        if (!starsRes.ok) throw new Error(`Nie udało się pobrać katalogu gwiazd (${starsRes.status})`);
+        if (!constRes.ok) throw new Error(`Nie udało się pobrać linii konstelacji (${constRes.status})`);
+        const [starsJson, constJson] = await Promise.all([starsRes.json(), constRes.json()]);
+        return { stars: starsJson, constellations: constJson };
+    })();
+    return skyCatalogsPromise;
+}
+
+function getStarsVisibilityFactor() {
+    const clouds = (typeof solarState === 'object' && solarState && Number.isFinite(solarState.clouds)) ? solarState.clouds : null;
+    const cloudFactor = clouds == null ? 1 : clamp(1 - (clouds / 100) * 0.85, 0.12, 1);
+    const moon = typeof getMoonData === 'function' ? getMoonData(new Date()) : null;
+    const moonIllum = moon && Number.isFinite(moon.illumination) ? moon.illumination : 0;
+    const moonFactor = clamp(1 - moonIllum * 0.35, 0.65, 1);
+    return cloudFactor * moonFactor;
+}
+
+function resizeStarsCanvas(canvas, widget) {
+    const dpr = Math.max(1, Math.min(2.5, window.devicePixelRatio || 1));
+    const cssW = widget?.offsetWidth || 600;
+    const cssH = widget?.offsetHeight || 220;
+    canvas.style.width = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function projectAltAzToCanvas(altRad, azRad, width, height) {
+    const horizonPadding = 0.06;
+    const radiusX = width * (0.5 - horizonPadding);
+    const radiusY = height * (0.52 - horizonPadding);
+    const cx = width * 0.5;
+    const cy = height * 0.56;
+
+    const zenithAngle = (Math.PI / 2) - altRad;
+    const r = clamp(zenithAngle / (Math.PI / 2), 0, 1);
+    const x = cx + Math.sin(azRad) * r * radiusX;
+    const y = cy - Math.cos(azRad) * r * radiusY;
+    return { x, y };
+}
+
+function buildFallbackStars(width, height) {
+    // Fallback gdy nie da si? pobra? katalog?w (np. uruchomienie z file://).
+    // Statyczne kropki ? bez animacji.
+    const count = Math.floor((width * height) / 2200);
+    let seed = Math.floor(width * 1000 + height * 7) >>> 0;
+    const rnd = () => {
+        // LCG
+        seed = (1664525 * seed + 1013904223) >>> 0;
+        return seed / 4294967296;
+    };
+    const stars = [];
+    for (let i = 0; i < count; i++) {
+        const x = rnd() * width;
+        const y = rnd() * height * 0.78;
+        const size = 0.6 + rnd() * 1.2;
+        const alpha = 0.15 + rnd() * 0.55;
+        stars.push({ x, y, size, alpha, rgb: [255, 255, 255] });
+    }
+    return stars;
+}
+
+async function initStars(date = new Date()) {
     const canvas = document.getElementById('sw-stars-canvas');
     if (!canvas) return;
     const widget = canvas.closest('.solar-widget');
     if (!widget) return;
-    canvas.width  = widget.offsetWidth  || 600;
-    canvas.height = widget.offsetHeight || 200;
-    starsData.length = 0;
-    const count = Math.floor((canvas.width * canvas.height) / 1800);
-    for (let i = 0; i < count; i++) {
-        starsData.push({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height * 0.75,
-            r: Math.random() * 1.2 + 0.3,
-            speed: Math.random() * 0.008 + 0.003,
-            phase: Math.random() * Math.PI * 2
-        });
+
+    resizeStarsCanvas(canvas, widget);
+
+    const width = Math.max(10, widget.offsetWidth || widget.clientWidth || 600);
+    const height = Math.max(10, widget.offsetHeight || widget.clientHeight || 220);
+
+    let stars = null;
+    let constellations = null;
+    try {
+        const catalogs = await loadSkyCatalogs();
+        stars = catalogs.stars;
+        constellations = catalogs.constellations;
+    } catch (e) {
+        // W razie błędu: pokaż chociaż gwiazdki (bez konstelacji), zamiast pustego tła
+        starsData.stars = buildFallbackStars(width, height);
+        starsData.lines.length = 0;
+        return;
+    }
+    const visFactor = getStarsVisibilityFactor();
+
+    const area = Math.max(1, width * height);
+    const areaScale = clamp(area / 200000, 0.35, 1);
+    const magLimit = 4.2 + 0.8 * areaScale; // ~4.5..5.0
+
+    const lat = SKY_OBSERVER_LOMZA.lat;
+    const lon = SKY_OBSERVER_LOMZA.lon;
+
+    starsData.stars.length = 0;
+    starsData.lines.length = 0;
+
+    const feats = Array.isArray(stars?.features) ? stars.features : [];
+    for (let i = 0; i < feats.length; i++) {
+        const f = feats[i];
+        const raDeg = f?.geometry?.coordinates?.[0];
+        const decDeg = f?.geometry?.coordinates?.[1];
+        const mag = f?.properties?.mag;
+        if (!Number.isFinite(raDeg) || !Number.isFinite(decDeg) || !Number.isFinite(mag)) continue;
+        if (mag > magLimit) continue;
+
+        const { altRad, azRad } = raDecToAltAz(raDeg, decDeg, date, lat, lon);
+        const altDeg = rad2deg(altRad);
+        if (altDeg < 0) continue;
+
+        const p = projectAltAzToCanvas(altRad, azRad, width, height);
+        const horizonFade = clamp((altDeg - 3) / 18, 0, 1);
+
+        const size = clamp(1.9 - mag * 0.28, 0.5, 1.7);
+        const alphaBase = clamp(0.95 - mag * 0.12, 0.10, 0.90);
+        const alpha = alphaBase * horizonFade * visFactor;
+        if (alpha < 0.03) continue;
+
+        const [r, g, b] = bvToRgb(f?.properties?.bv);
+        starsData.stars.push({ x: p.x, y: p.y, size, alpha, rgb: [r, g, b] });
+    }
+
+    const conFeats = Array.isArray(constellations?.features) ? constellations.features : [];
+    for (let i = 0; i < conFeats.length; i++) {
+        const cf = conFeats[i];
+        const rank = String(cf?.properties?.rank ?? '');
+        if (rank && rank !== '1' && rank !== '2') continue;
+        const multi = cf?.geometry?.coordinates;
+        if (!Array.isArray(multi)) continue;
+
+        for (const line of multi) {
+            if (!Array.isArray(line) || line.length < 2) continue;
+            for (let j = 0; j < line.length - 1; j++) {
+                const a = line[j];
+                const b = line[j + 1];
+                const raA = a?.[0], decA = a?.[1];
+                const raB = b?.[0], decB = b?.[1];
+                if (!Number.isFinite(raA) || !Number.isFinite(decA) || !Number.isFinite(raB) || !Number.isFinite(decB)) continue;
+
+                const aa = raDecToAltAz(raA, decA, date, lat, lon);
+                const bb = raDecToAltAz(raB, decB, date, lat, lon);
+                const altA = rad2deg(aa.altRad);
+                const altB = rad2deg(bb.altRad);
+                if (altA < 0 && altB < 0) continue;
+
+                const pa = projectAltAzToCanvas(aa.altRad, aa.azRad, width, height);
+                const pb = projectAltAzToCanvas(bb.altRad, bb.azRad, width, height);
+                starsData.lines.push({ x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y });
+            }
+        }
     }
 }
 
-function drawStars(timestamp) {
+function drawStars() {
     const canvas = document.getElementById('sw-stars-canvas');
     const widget = canvas ? canvas.closest('.solar-widget') : null;
-    if (!canvas || !widget || !widget.classList.contains('is-night')) {
-        starsAnimFrame = requestAnimationFrame(drawStars);
-        return;
-    }
+    if (!canvas || !widget) return;
+
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const t = timestamp / 1000;
-    starsData.forEach(function(s) {
-        const alpha = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * s.speed * 6 + s.phase));
+    if (!ctx) return;
+
+    const width = Math.max(10, widget.offsetWidth || widget.clientWidth || 600);
+    const height = Math.max(10, widget.offsetHeight || widget.clientHeight || 220);
+    ctx.clearRect(0, 0, width, height);
+
+    if (!widget.classList.contains('is-night')) return;
+
+    const grad = ctx.createRadialGradient(width * 0.55, height * 0.15, 0, width * 0.55, height * 0.2, Math.max(width, height) * 0.85);
+    grad.addColorStop(0, 'rgba(59,130,246,0.10)');
+    grad.addColorStop(1, 'rgba(2,6,23,0.00)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+
+    // Konstelacje
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 0.6;
+    ctx.lineWidth = 1.0;
+    ctx.strokeStyle = 'rgba(148,163,184,0.08)';
+    ctx.shadowBlur = 2;
+    ctx.shadowColor = 'rgba(96,165,250,0.04)';
+    ctx.beginPath();
+    for (const ln of starsData.lines) {
+        ctx.moveTo(ln.x1, ln.y1);
+        ctx.lineTo(ln.x2, ln.y2);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Gwiazdy
+    for (const s of starsData.stars) {
         ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,255,255,' + alpha.toFixed(2) + ')';
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        const [r, g, b] = s.rgb;
+        ctx.fillStyle = `rgba(${r},${g},${b},${s.alpha.toFixed(3)})`;
         ctx.fill();
-    });
-    starsAnimFrame = requestAnimationFrame(drawStars);
+    }
 }
 
 function startStars() {
-    initStars();
+    // Bez ci?g?ej animacji: przelicz/rysuj od razu + rzadkie odswiezanie (powolny obr?t nieba)
+    Promise.resolve()
+        .then(() => initStars(new Date()))
+        .then(() => drawStars())
+        .catch(() => {});
+
     if (starsAnimFrame) cancelAnimationFrame(starsAnimFrame);
-    starsAnimFrame = requestAnimationFrame(drawStars);
+    starsAnimFrame = null;
+
+    if (starsUpdateTimer) clearInterval(starsUpdateTimer);
+    starsUpdateTimer = setInterval(() => {
+        const canvas = document.getElementById('sw-stars-canvas');
+        const widget = canvas ? canvas.closest('.solar-widget') : null;
+        if (!canvas || !widget || !widget.classList.contains('is-night')) return;
+        Promise.resolve()
+            .then(() => initStars(new Date()))
+            .then(() => drawStars())
+            .catch(() => {});
+    }, 10 * 60 * 1000);
 }
 
-// Reinicjalizuj canvas przy każdej zmianie rozmiaru widgetu
+function stopStars() {
+    if (starsUpdateTimer) clearInterval(starsUpdateTimer);
+    starsUpdateTimer = null;
+    if (starsAnimFrame) cancelAnimationFrame(starsAnimFrame);
+    starsAnimFrame = null;
+    drawStars(); // wyczysci canvas (bo nie jest is-night) lub przerysuje
+}
+
+// ťť HERO: Realistyczne niebo (gwiazdy + konstelacje) ťťťťťťťťťťťťťťťťťťťťťťťťťťťť
+const heroSkyData = { stars: [], lines: [] };
+let heroSkyTimer = null;
+let heroSkyAnimFrame = null;
+let heroSkyLastDraw = 0;
+let heroSkyNextSparkleAt = 0;
+
+async function initHeroSky(date = new Date()) {
+    const canvas = document.getElementById('hero-sky-canvas');
+    const hero = document.querySelector('.hero');
+    if (!canvas || !hero) return;
+
+    resizeStarsCanvas(canvas, hero);
+
+    const width = Math.max(10, hero.offsetWidth || hero.clientWidth || 1200);
+    const height = Math.max(10, hero.offsetHeight || hero.clientHeight || 700);
+
+    let stars = null;
+    let constellations = null;
+    try {
+        const catalogs = await loadSkyCatalogs();
+        stars = catalogs.stars;
+        constellations = catalogs.constellations;
+    } catch (_) {
+        heroSkyData.stars = buildFallbackStars(width, height);
+        heroSkyData.lines.length = 0;
+        return;
+    }
+
+    const visFactor = getStarsVisibilityFactor();
+
+    // W HERO pozwalamy na nieco ciemniejsze gwiazdy
+    const area = Math.max(1, width * height);
+    const areaScale = clamp(area / 700000, 0.35, 1);
+    const magLimit = 4.6 + 0.8 * areaScale; // ~4.9..5.4
+
+    const lat = SKY_OBSERVER_LOMZA.lat;
+    const lon = SKY_OBSERVER_LOMZA.lon;
+
+    heroSkyData.stars.length = 0;
+    heroSkyData.lines.length = 0;
+
+    const feats = Array.isArray(stars?.features) ? stars.features : [];
+    for (let i = 0; i < feats.length; i++) {
+        const f = feats[i];
+        const raDeg = f?.geometry?.coordinates?.[0];
+        const decDeg = f?.geometry?.coordinates?.[1];
+        const mag = f?.properties?.mag;
+        if (!Number.isFinite(raDeg) || !Number.isFinite(decDeg) || !Number.isFinite(mag)) continue;
+        if (mag > magLimit) continue;
+
+        const { altRad, azRad } = raDecToAltAz(raDeg, decDeg, date, lat, lon);
+        const altDeg = rad2deg(altRad);
+        if (altDeg < 0) continue;
+
+        const p = projectAltAzToCanvas(altRad, azRad, width, height);
+        const horizonFade = clamp((altDeg - 2) / 14, 0, 1);
+
+        const size = clamp(2.2 - mag * 0.30, 0.55, 2.0);
+        const alphaBase = clamp(1.05 - mag * 0.13, 0.12, 0.95);
+        const alpha = alphaBase * horizonFade * visFactor;
+        if (alpha < 0.03) continue;
+
+        const [r, g, b] = bvToRgb(f?.properties?.bv);
+
+        // Migotanie: tylko cz??? ja?niejszych gwiazd, subtelnie i bez "p?ywania"
+        const canTwinkle = alpha > 0.18 && size > 0.9;
+        const twinkle = canTwinkle && Math.random() < 0.55;
+        const twinkleAmp = twinkle ? (0.14 + Math.random() * 0.26) : 0; // 14%..40%
+        const twinkleSpeed = twinkle ? (1.4 + Math.random() * 3.2) : 0; // rad/s
+        const twinklePhase = twinkle ? (Math.random() * Math.PI * 2) : 0;
+
+        heroSkyData.stars.push({
+            x: p.x, y: p.y, size, alpha, rgb: [r, g, b],
+            twinkleAmp, twinkleSpeed, twinklePhase,
+            sparkleT0: 0, sparkleT1: 0, sparkleAmp: 0
+        });
+    }
+
+    const conFeats = Array.isArray(constellations?.features) ? constellations.features : [];
+    for (let i = 0; i < conFeats.length; i++) {
+        const cf = conFeats[i];
+        const rank = String(cf?.properties?.rank ?? '');
+        if (rank && rank !== '1' && rank !== '2') continue;
+        const multi = cf?.geometry?.coordinates;
+        if (!Array.isArray(multi)) continue;
+
+        for (const line of multi) {
+            if (!Array.isArray(line) || line.length < 2) continue;
+            for (let j = 0; j < line.length - 1; j++) {
+                const a = line[j];
+                const b = line[j + 1];
+                const raA = a?.[0], decA = a?.[1];
+                const raB = b?.[0], decB = b?.[1];
+                if (!Number.isFinite(raA) || !Number.isFinite(decA) || !Number.isFinite(raB) || !Number.isFinite(decB)) continue;
+
+                const aa = raDecToAltAz(raA, decA, date, lat, lon);
+                const bb = raDecToAltAz(raB, decB, date, lat, lon);
+                if (rad2deg(aa.altRad) < 0 || rad2deg(bb.altRad) < 0) continue;
+
+                const pa = projectAltAzToCanvas(aa.altRad, aa.azRad, width, height);
+                const pb = projectAltAzToCanvas(bb.altRad, bb.azRad, width, height);
+                heroSkyData.lines.push({ x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y });
+            }
+        }
+    }
+}
+
+function drawHeroSky(ts = (typeof performance !== 'undefined' ? performance.now() : Date.now())) {
+    const canvas = document.getElementById('hero-sky-canvas');
+    const hero = document.querySelector('.hero');
+    if (!canvas || !hero) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const width = Math.max(10, hero.offsetWidth || hero.clientWidth || 1200);
+    const height = Math.max(10, hero.offsetHeight || hero.clientHeight || 700);
+    ctx.clearRect(0, 0, width, height);
+
+    if (!hero.classList.contains('is-night')) return;
+
+    // Delikatna po?wiata nieba
+    const grad = ctx.createRadialGradient(width * 0.55, height * 0.10, 0, width * 0.55, height * 0.20, Math.max(width, height) * 0.95);
+    grad.addColorStop(0, 'rgba(59,130,246,0.10)');
+    grad.addColorStop(1, 'rgba(2,6,23,0.00)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+
+    // Konstelacje (subtelnie, ?eby nie zlewa?y si? z UI)
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 0.55;
+    ctx.lineWidth = 1.0;
+    ctx.strokeStyle = 'rgba(148,163,184,0.07)';
+    ctx.shadowBlur = 2;
+    ctx.shadowColor = 'rgba(96,165,250,0.04)';
+    ctx.beginPath();
+    for (const ln of heroSkyData.lines) {
+        ctx.moveTo(ln.x1, ln.y1);
+        ctx.lineTo(ln.x2, ln.y2);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Gwiazdy
+    const t = ts / 1000;
+
+    // "B?y?ni?cia" gwiazd: kontrolowana cz?stotliwo?? (nie zale?y od FPS)
+    if (heroSkyData.stars.length) {
+        if (!heroSkyNextSparkleAt) heroSkyNextSparkleAt = t + 0.15;
+        if (t >= heroSkyNextSparkleAt) {
+            // ok. 2?5 b?ysk?w na sekund?, zwykle 2?4 gwiazdy naraz
+            const nextIn = 0.20 + Math.random() * 0.28; // 0.20..0.48s
+            heroSkyNextSparkleAt = t + nextIn;
+
+            const bursts = 2 + Math.floor(Math.random() * 3); // 2..4
+            for (let k = 0; k < bursts; k++) {
+                // kilka pr?b, ?eby trafi? w ja?niejsz? gwiazd?
+                let picked = null;
+                for (let tries = 0; tries < 8; tries++) {
+                    const idx = Math.floor(Math.random() * heroSkyData.stars.length);
+                    const cand = heroSkyData.stars[idx];
+                    if (cand && cand.alpha > 0.14) { picked = cand; break; }
+                }
+                const s = picked || heroSkyData.stars[Math.floor(Math.random() * heroSkyData.stars.length)];
+                if (!s || s.alpha <= 0.10) continue;
+
+                const dur = 0.18 + Math.random() * 0.22; // 0.18..0.40s
+                s.sparkleT0 = t;
+                s.sparkleT1 = t + dur;
+                s.sparkleAmp = 0.55 + Math.random() * 1.10; // 55%..165%
+            }
+        }
+    }
+
+    for (const s of heroSkyData.stars) {
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        const [r, g, b] = s.rgb;
+
+// Migotanie: tylko rozjania (bez przygaszania), eby byo wyraşniejsze
+        const tw = s.twinkleAmp && s.twinkleSpeed
+            ? (1 + s.twinkleAmp * (0.55 + 0.45 * Math.sin(t * s.twinkleSpeed + s.twinklePhase)))
+            : 1;
+
+        // B?ysk: szybkie rozja?nienie i zanik
+        let sparkle = 1;
+        if (s.sparkleT1 && t < s.sparkleT1) {
+            const p = (t - s.sparkleT0) / Math.max(1e-6, (s.sparkleT1 - s.sparkleT0)); // 0..1
+            const bump = 1 - Math.abs(2 * p - 1); // tr?jk?t 0..1..0
+            sparkle = 1 + (s.sparkleAmp || 0) * bump;
+        }
+
+        const a = clamp(s.alpha * tw * sparkle, 0, 1);
+        ctx.fillStyle = `rgba(${r},${g},${b},${a.toFixed(3)})`;
+        ctx.fill();
+    }
+}
+
+function startHeroSky() {
+    Promise.resolve()
+        .then(() => initHeroSky(new Date()))
+        .then(() => drawHeroSky())
+        .catch(() => {});
+
+    // Delikatne migotanie (bez ruchu): limit FPS, ?eby by?o lekko
+    if (heroSkyAnimFrame) cancelAnimationFrame(heroSkyAnimFrame);
+    heroSkyLastDraw = 0;
+    heroSkyNextSparkleAt = 0;
+    const loop = (now) => {
+        const hero = document.querySelector('.hero');
+        if (!hero || !hero.classList.contains('is-night')) {
+            heroSkyAnimFrame = null;
+            return;
+        }
+        if (now - heroSkyLastDraw > 50) { // ~20 FPS
+            drawHeroSky(now);
+            heroSkyLastDraw = now;
+        }
+        heroSkyAnimFrame = requestAnimationFrame(loop);
+    };
+    heroSkyAnimFrame = requestAnimationFrame(loop);
+
+    if (heroSkyTimer) clearInterval(heroSkyTimer);
+    heroSkyTimer = setInterval(() => {
+        const hero = document.querySelector('.hero');
+        if (!hero || !hero.classList.contains('is-night')) return;
+        Promise.resolve()
+            .then(() => initHeroSky(new Date()))
+            .then(() => drawHeroSky())
+            .catch(() => {});
+    }, 10 * 60 * 1000);
+}
+
+function stopHeroSky() {
+    if (heroSkyTimer) clearInterval(heroSkyTimer);
+    heroSkyTimer = null;
+    if (heroSkyAnimFrame) cancelAnimationFrame(heroSkyAnimFrame);
+    heroSkyAnimFrame = null;
+    drawHeroSky();
+}
+
+(function() {
+    const canvas = document.getElementById('hero-sky-canvas');
+    const hero = document.querySelector('.hero');
+    if (!canvas || !hero || typeof ResizeObserver === 'undefined') return;
+    let resizeTimer = null;
+    const ro = new ResizeObserver(() => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            if (hero.classList.contains('is-night')) startHeroSky();
+            else stopHeroSky();
+        }, 180);
+    });
+    ro.observe(hero);
+})();
+
+// Reinicjalizuj canvas przy ka?dej zmianie rozmiaru widgetu
 (function() {
     const canvas = document.getElementById('sw-stars-canvas');
     const widget = canvas ? canvas.closest('.solar-widget') : null;
@@ -1336,13 +1981,17 @@ function startStars() {
     const ro = new ResizeObserver(() => {
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
-            initStars();
-        }, 120);
+            if (widget.classList.contains('is-night')) startStars();
+            else {
+                resizeStarsCanvas(canvas, widget);
+                stopStars();
+            }
+        }, 140);
     });
     ro.observe(widget);
 })();
 
-// ── SOLAR WIDGET: Licznik mocy na zywo ──────────────────────
+// SOLAR WIDGET: Licznik mocy na zywo
 let livePowerCurrent = 0;
 
 function updateLivePower(targetW, isDay) {
@@ -1399,7 +2048,7 @@ function drawSolarCurve(hoverX = null) {
     const isDaylight = nowTs >= sunriseTs && nowTs <= sunsetTs;
     const totalDay   = sunsetTs - sunriseTs;
 
-    // ── Siatka godzinowa ─────────────────────────────────────
+// Siatka godzinowa
     ctx.strokeStyle = 'rgba(255,255,255,0.06)';
     ctx.lineWidth = 1;
     const sunriseDate = new Date(sunriseTs);
@@ -1411,21 +2060,21 @@ function drawSolarCurve(hoverX = null) {
         ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, H - pad.b); ctx.stroke();
     }
 
-    // ── Gradient pod krzywą ──────────────────────────────────
+// Gradient pod krzyw
     const grad = ctx.createLinearGradient(0, pad.t, 0, H - pad.b);
     if (isNightMode) {
         grad.addColorStop(0, 'rgba(59, 130, 246, 0.25)'); // Niebieskawy w nocy
         grad.addColorStop(1, 'rgba(59, 130, 246, 0.02)');
     } else {
-        grad.addColorStop(0, 'rgba(245,158,11,0.35)'); // Pomarańczowy w dzień
+        grad.addColorStop(0, 'rgba(245,158,11,0.35)'); // Pomara?czowy w dzie?
         grad.addColorStop(1, 'rgba(245,158,11,0.03)');
     }
 
-    // ── Sinusoida produkcji (zachmurzenie spłaszcza krzywą) ──
+// Sinusoida produkcji (zachmurzenie spaszcza krzyw)
     const cloudFactor = 1 - (clouds / 100) * 0.85;
     const steps = 300;
 
-    // Wypełnienie gradientem
+    // Wype?nienie gradientem
     ctx.beginPath();
     for (let i = 0; i <= steps; i++) {
         const t   = i / steps;
@@ -1450,16 +2099,16 @@ function drawSolarCurve(hoverX = null) {
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
     
-    // Gradient dla linii: Niebieski (rano) -> Pomarańczowy (południe) -> Niebieski (wieczór)
+    // Gradient dla linii: Niebieski (rano) -> Pomara?czowy (po?udnie) -> Niebieski (wiecz?r)
     const strokeGrad = ctx.createLinearGradient(pad.l, 0, pad.l + plotW, 0);
     if (isNightMode) {
         strokeGrad.addColorStop(0.0, '#1e40af');
-        strokeGrad.addColorStop(0.5, '#3b82f6'); // Chłodny niebieski środek
+        strokeGrad.addColorStop(0.5, '#3b82f6'); // Ch?odny niebieski ?rodek
         strokeGrad.addColorStop(1.0, '#1e40af');
         ctx.shadowColor = 'rgba(59, 130, 246, 0.5)';
     } else {
         strokeGrad.addColorStop(0.0, '#3B82F6');
-        strokeGrad.addColorStop(0.5, '#F59E0B'); // Ciepły pomarańczowy środek
+        strokeGrad.addColorStop(0.5, '#F59E0B'); // Ciep?y pomara?czowy ?rodek
         strokeGrad.addColorStop(1.0, '#3B82F6');
         ctx.shadowColor = 'rgba(245,158,11,0.6)';
     }
@@ -1470,7 +2119,7 @@ function drawSolarCurve(hoverX = null) {
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // ── INTERAKCJA (HOVER) ───────────────────────────────────
+// INTERAKCJA (HOVER)
     if (hoverX !== null) {
         const t = (hoverX - pad.l) / plotW;
         if (t >= 0 && t <= 1) {
@@ -1488,7 +2137,7 @@ function drawSolarCurve(hoverX = null) {
             ctx.lineWidth = 1;
             ctx.stroke();
 
-            // Kółko na krzywej
+            // K??ko na krzywej
             ctx.beginPath(); ctx.arc(hoverX, hoverY, 5, 0, Math.PI * 2);
             ctx.fillStyle = '#fff'; ctx.fill();
 
@@ -1510,55 +2159,59 @@ function drawSolarCurve(hoverX = null) {
         }
     }
 
-    // ── Znacznik "TERAZ" ─────────────────────────────────────
+// Znacznik "TERAZ"
+    const nowRatioRaw = (nowTs - sunriseTs) / totalDay;
+    const nowRatio = Math.max(0, Math.min(1, nowRatioRaw));
+    const nowX = pad.l + nowRatio * plotW;
+
     if (isDaylight) {
-        const nowRatio = (nowTs - sunriseTs) / totalDay;
-        const nowX     = pad.l + nowRatio * plotW;
-        // Przyciemnij przeszłość
+        // Przyciemnij przeszłość tylko w ciągu dnia
         ctx.save(); ctx.beginPath(); ctx.rect(pad.l, 0, nowX - pad.l, H); ctx.clip();
         ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, 0, W, H); ctx.restore();
-        // Pionowa linia
-        ctx.beginPath(); ctx.moveTo(nowX, pad.t - 4); ctx.lineTo(nowX, H - pad.b + 4);
-        ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
-        // Kółko
-        const sinNow = Math.sin(Math.PI * nowRatio) * cloudFactor;
-        const nowY   = pad.t + plotH * (1 - sinNow);
-        
-        // Animowana kulka slonca z blaskiem i promyczkami
-        ctx.save();
-        var sunGrad = ctx.createRadialGradient(nowX, nowY, 0, nowX, nowY, 18);
-        sunGrad.addColorStop(0,   'rgba(253,224,71,0.9)');
-        sunGrad.addColorStop(0.4, 'rgba(245,158,11,0.5)');
-        sunGrad.addColorStop(1,   'rgba(245,158,11,0)');
-        ctx.beginPath(); ctx.arc(nowX, nowY, 18, 0, Math.PI * 2);
-        ctx.fillStyle = sunGrad; ctx.fill();
-        ctx.beginPath(); ctx.arc(nowX, nowY, 7, 0, Math.PI * 2);
-        ctx.fillStyle = '#fde047';
-        ctx.shadowColor = 'rgba(253,224,71,1)'; ctx.shadowBlur = 16;
-        ctx.fill(); ctx.shadowBlur = 0;
-        ctx.strokeStyle = 'rgba(253,224,71,0.6)'; ctx.lineWidth = 1.5;
-        for (var ang = 0; ang < Math.PI * 2; ang += Math.PI / 4) {
-            ctx.beginPath();
-            ctx.moveTo(nowX + Math.cos(ang) * 9,  nowY + Math.sin(ang) * 9);
-            ctx.lineTo(nowX + Math.cos(ang) * 14, nowY + Math.sin(ang) * 14);
-            ctx.stroke();
-        }
-        ctx.restore();
-        ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
-        var labelX = Math.min(Math.max(nowX, 28), W - 28);
-        ctx.fillText('TERAZ', labelX, nowY - 26);
     }
+
+    // Pionowa linia
+    ctx.beginPath(); ctx.moveTo(nowX, pad.t - 4); ctx.lineTo(nowX, H - pad.b + 4);
+    ctx.strokeStyle = isDaylight ? 'rgba(255,255,255,0.5)' : 'rgba(148,163,184,0.45)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+
+    const sinNow = Math.sin(Math.PI * nowRatio) * cloudFactor;
+    const nowY   = pad.t + plotH * (1 - sinNow);
+
+    // Kulka słońca z blaskiem i promyczkami
+    ctx.save();
+    var sunGrad = ctx.createRadialGradient(nowX, nowY, 0, nowX, nowY, 18);
+    sunGrad.addColorStop(0,   'rgba(253,224,71,0.9)');
+    sunGrad.addColorStop(0.4, 'rgba(245,158,11,0.5)');
+    sunGrad.addColorStop(1,   'rgba(245,158,11,0)');
+    ctx.beginPath(); ctx.arc(nowX, nowY, 18, 0, Math.PI * 2);
+    ctx.fillStyle = sunGrad; ctx.fill();
+    ctx.beginPath(); ctx.arc(nowX, nowY, 7, 0, Math.PI * 2);
+    ctx.fillStyle = '#fde047';
+    ctx.shadowColor = 'rgba(253,224,71,1)'; ctx.shadowBlur = 16;
+    ctx.fill(); ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(253,224,71,0.6)'; ctx.lineWidth = 1.5;
+    for (var ang = 0; ang < Math.PI * 2; ang += Math.PI / 4) {
+        ctx.beginPath();
+        ctx.moveTo(nowX + Math.cos(ang) * 9,  nowY + Math.sin(ang) * 9);
+        ctx.lineTo(nowX + Math.cos(ang) * 14, nowY + Math.sin(ang) * 14);
+        ctx.stroke();
+    }
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+    var labelX = Math.min(Math.max(nowX, 28), W - 28);
+    ctx.fillText('TERAZ', labelX, nowY - 26);
     // Etykiety osi
     ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left'; ctx.fillText('🌅', pad.l, H - 8);
     ctx.textAlign = 'center'; ctx.fillText('🌞 południe', pad.l + plotW / 2, H - 8);
     ctx.textAlign = 'right'; ctx.fillText('🌇', pad.l + plotW, H - 8);
-    // Oś pozioma
+    // O? pozioma
     ctx.beginPath(); ctx.moveTo(pad.l, H - pad.b); ctx.lineTo(pad.l + plotW, H - pad.b);
     ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1; ctx.stroke();
 }
 
-// ── Mapa kodów WMO → emoji ikona i opis ──────────────
+// Mapa kodw WMO emoji ikona i opis
 function wmoIcon(code) {
     if (code === 0)               return { icon: '☀️',  label: 'Bezchmurnie' };
     if (code <= 2)                return { icon: '🌤️',  label: 'Częściowe zachmurzenie' };
@@ -1577,14 +2230,69 @@ function renderForecast(view) {
     if (!container || !solarState || !solarState.daily) return;
 
     container.innerHTML = '';
+    const titleEl = document.querySelector('.sw-forecast-title');
     const daily = solarState.daily;
     const DAYS_PL = ['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'];
     const MONTHS_PL = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
     const efficiency = 0.82;
     const n = daily.shortwave_radiation_sum?.length ?? 14;
 
-    if (view === 'solar') {
-        // ── WIDOK PRODUKCJI — słupki + ikona pogody + opady ──
+    if (view === 'history') {
+        const hourly = solarState.hourly;
+        if (!hourly) {
+            container.innerHTML = '<div style="color:rgba(255,255,255,0.3); font-size:0.8rem; padding:20px;">Ładowanie historii...</div>';
+            return;
+        }
+        const localNow = new Date();
+        const year = localNow.getFullYear();
+        const month = String(localNow.getMonth() + 1).padStart(2, '0');
+        const day = String(localNow.getDate()).padStart(2, '0');
+        const hour = String(localNow.getHours()).padStart(2, '0');
+        const currentLocalIso = `${year}-${month}-${day}T${hour}:00`;
+
+        let currentIndex = hourly.time.findIndex(t => t === currentLocalIso);
+        if (currentIndex === -1) currentIndex = hourly.time.length - 1;
+
+        const startIndex = Math.max(0, currentIndex - 23);
+        const dataSlice = hourly.shortwave_radiation.slice(startIndex, currentIndex + 1);
+        const timeSlice = hourly.time.slice(startIndex, currentIndex + 1);
+        const systemKWp = PEAK_POWER / 1000;
+        const historyKWh = dataSlice.map(rad => (rad / 1000) * systemKWp * efficiency);
+
+        const total24h = historyKWh.reduce((sum, val) => sum + val, 0);
+        const currentPrice = inputs.price.el ? parseFloat(inputs.price.el.value) : 1.10;
+        const totalSaved = total24h * currentPrice;
+        const maxHourVal = Math.max(...historyKWh);
+        const maxHourIdx = historyKWh.indexOf(maxHourVal);
+        const maxHourStr = timeSlice[maxHourIdx].split('T')[1].substring(0, 5);
+
+        if (titleEl) {
+            titleEl.innerHTML = `Ostatnie 24h <span style="color:#60a5fa; margin-left:8px; text-transform:none; font-weight:600; font-size:0.8rem;">(Suma: ${total24h.toFixed(2)} kWh ≈ ${totalSaved.toFixed(2)} zł)</span>` +
+                               `<div style="font-size:0.65rem; color:rgba(255,255,255,0.4); margin-top:2px; text-transform:none;">Szczyt: ${maxHourVal.toFixed(2)} kWh o godz. ${maxHourStr}</div>`;
+        }
+
+        const maxKWh = Math.max(...historyKWh, 0.5);
+
+        timeSlice.forEach((iso, i) => {
+            const val = historyKWh[i];
+            const hourStr = iso.split('T')[1].substring(0, 5);
+            const heightPct = Math.max((val / maxKWh) * 100, 2);
+            const hourlySaved = val * currentPrice;
+            const tooltip = `Godzina: ${hourStr}\nProdukcja: ${val.toFixed(2)} kWh\nZysk: ${hourlySaved.toFixed(2)} zł`;
+            const isNow = i === dataSlice.length - 1 ? 'today' : '';
+            const html = `
+                <div class="sw-day ${isNow} sw-animate-in" style="animation-delay:${i * 0.02}s; min-width:44px;" data-tooltip="${tooltip}">
+                    <div class="sw-bar-wrap" style="height:100px;">
+                        <div class="sw-day-val" style="font-size:0.6rem;">${val > 0.05 ? val.toFixed(1) : ''}</div>
+                        <div class="sw-bar" style="height:${heightPct}%; background:linear-gradient(to top, rgba(59, 130, 246, 0.3), rgba(59, 130, 246, 0.7)); border-top-color:#60a5fa; ${val <= 0.05 ? 'opacity:0.2' : ''} ${i === maxHourIdx && val > 0 ? 'box-shadow: 0 0 15px rgba(96, 165, 250, 0.4); border-top-width:3px;' : ''}"></div>
+                    </div>
+                    <div class="sw-day-name" style="font-size:0.55rem; margin-top:4px;">${hourStr}</div>
+                </div>`;
+            container.insertAdjacentHTML('beforeend', html);
+        });
+    } else if (view === 'solar') {
+        if (titleEl) titleEl.textContent = 'Prognoza produkcji (14 dni)';
+// WIDOK PRODUKCJI supki + ikona pogody + opady
         const dailyRad  = daily.shortwave_radiation_sum;
         const wCodes    = daily.weather_code ?? [];
         const precip    = daily.precipitation_sum ?? [];
@@ -1619,7 +2327,8 @@ function renderForecast(view) {
         });
 
     } else {
-        // ── WIDOK TEMPERATURY — SVG linia ──
+        if (titleEl) titleEl.textContent = 'Prognoza temperatury (14 dni)';
+// WIDOK TEMPERATURY SVG linia
         const tMax     = daily.temperature_2m_max;
         const tMin     = daily.temperature_2m_min;
         const wCodes   = daily.weather_code ?? [];
@@ -1652,7 +2361,7 @@ function renderForecast(view) {
             dayLabels   += `<div style="position:absolute;left:${(i * colWidth).toFixed(2)}%;bottom:0;width:${colWidth.toFixed(2)}%;text-align:center;font-size:0.55rem;color:rgba(255,255,255,0.25);${isFar}">${dateStr}</div>`;
         });
 
-        // Pionowe linie co 7 dni (separator tydzień 1 / tydzień 2)
+        // Pionowe linie co 7 dni (separator tydzie? 1 / tydzie? 2)
         const sepX = (7 * colWidth).toFixed(2);
 
         container.innerHTML = `
@@ -1682,7 +2391,7 @@ function getMoonData(date) {
     const phase = age / SYNODIC_MONTH; // 0..1
     const illumination = 0.5 * (1 - Math.cos(2 * Math.PI * phase)); // 0..1
     const waxing = phase < 0.5; // true = przybywa
-    const phaseIndex = Math.round(phase * 8) % 8; // zgodne z istniejącymi klasami CSS
+    const phaseIndex = Math.round(phase * 8) % 8; // zgodne z istniej?cymi klasami CSS
 
     return { phase, age, illumination, waxing, phaseIndex };
 }
@@ -1699,7 +2408,7 @@ function applyMoonVisuals(sunWrapper, moon) {
     sunWrapper.style.setProperty('--moon-halo-alpha', haloAlpha);
 }
 
-// ── LICZNIK ZAROBKU OD MONTAŻU ──────────────────────
+// LICZNIK ZAROBKU OD MONTAU
 // Ustaw datę pierwszego uruchomienia systemu (RRRR, MM-1, DD)
 const SYSTEM_START_DATE = new Date(2025, 0, 1); // Styczeń 2025 - zmień na swoją datę!
 const ANNUAL_PRODUCTION_KWH = 6200; // Szacowana roczna produkcja kWh (7 paneli x 450W, Łomża)
@@ -1711,25 +2420,25 @@ function updateEarnedCounter() {
     const box = document.getElementById('sw-earned-box');
     if (!box) return;
 
-    // Pobierz aktualną cenę prądu z kalkulatora
+    // Pobierz aktualn? cen? pr?du z kalkulatora
     const priceEl  = document.getElementById('range-price');
     const price    = priceEl ? parseFloat(priceEl.value) : 1.10;
 
-    // Oblicz ile dni minęło od montażu
+    // Oblicz ile dni min??o od monta?u
     const now      = new Date();
     const msPerDay = 1000 * 60 * 60 * 24;
     const daysRun  = Math.max(0, Math.floor((now - SYSTEM_START_DATE) / msPerDay));
 
-    // Szacowana łączna produkcja (proporcjonalnie do dni)
-    // Uwzględniamy sezonowość: lato produkuje więcej, zima mniej
+    // Szacowana ??czna produkcja (proporcjonalnie do dni)
+    // Uwzgl?dniamy sezonowo??: lato produkuje wi?cej, zima mniej
     const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / msPerDay);
-    // Współczynnik sezonowy (sinusoida: max w czerwcu ~dzień 172)
+    // Wsp??czynnik sezonowy (sinusoida: max w czerwcu ~dzie? 172)
     const seasonFactor = 0.55 + 0.45 * Math.sin(((dayOfYear - 80) / 365) * 2 * Math.PI);
 
-    // Roczna produkcja × ułamek roku który minął (z korekcją sezonową)
+// Roczna produkcja — uamek roku ktry min (z korekcj sezonow)
     const totalKwh = (ANNUAL_PRODUCTION_KWH / 365) * daysRun * (0.7 + seasonFactor * 0.3);
 
-    // Zarobek = produkcja × cena prądu
+// Zarobek = produkcja — cena prdu
     const totalEarned = totalKwh * price;
 
     // Dzisiaj: kWh z solar widgetu
@@ -1737,7 +2446,7 @@ function updateEarnedCounter() {
     const todayKwh   = todayKwhEl ? parseFloat(todayKwhEl.textContent) || 0 : 0;
     const todayEarned = todayKwh * price;
 
-    // Aktualizuj etykietę ceny
+    // Aktualizuj etykiet? ceny
     const priceLabel = document.getElementById('sw-earned-price');
     if (priceLabel) priceLabel.textContent = price.toFixed(2).replace('.', ',');
 
@@ -1749,7 +2458,7 @@ function updateEarnedCounter() {
     const kwhEl = document.getElementById('sw-earned-kwh');
     if (kwhEl) kwhEl.textContent = Math.round(totalKwh).toLocaleString('pl-PL');
 
-    // Aktualizuj dziś
+    // Aktualizuj dzi?
     const todayEl = document.getElementById('sw-earned-today-val');
     if (todayEl) {
         todayEl.textContent = todayEarned > 0
@@ -1757,13 +2466,13 @@ function updateEarnedCounter() {
             : '--';
     }
 
-    // Pasek postępu (cel: roczna oszczędność = ANNUAL_PRODUCTION_KWH * price)
+    // Pasek post?pu (cel: roczna oszcz?dno?? = ANNUAL_PRODUCTION_KWH * price)
     const annualGoal = ANNUAL_PRODUCTION_KWH * price;
     const progressPct = Math.min(100, Math.round((totalEarned % annualGoal) / annualGoal * 100));
     const barEl = document.getElementById('sw-earned-bar');
     if (barEl) barEl.style.width = progressPct + '%';
 
-    // Animuj licznik złotówek (od poprzedniej do nowej wartości)
+    // Animuj licznik złot?wek (od poprzedniej do nowej warto?ci)
     const valEl = document.getElementById('sw-earned-val');
     if (!valEl) return;
 
@@ -1792,11 +2501,11 @@ function updateEarnedCounter() {
     earnedAnimFrame = requestAnimationFrame(animStep);
 }
 
-// Uruchom przy starcie i po każdej zmianie ceny prądu
+// Uruchom przy starcie i po ka?dej zmianie ceny pr?du
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(updateEarnedCounter, 800);
 
-    // Reaguj na zmianę ceny prądu w kalkulatorze
+    // Reaguj na zmian? ceny pr?du w kalkulatorze
     const priceSlider = document.getElementById('range-price');
     if (priceSlider) {
         priceSlider.addEventListener('input', function() {
@@ -1805,14 +2514,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Odświeżaj co 60 sekund (aktualizacja "dziś" z API)
+// Od?wie?aj co 60 sekund (aktualizacja "dzi?" z API)
 setInterval(function() {
     if (typeof updateEarnedCounter === 'function') updateEarnedCounter();
 }, 60000);
 
 async function loadSolarData() {
     clearTimeout(solarTimeout);
-    console.log('☀ loadSolarData() uruchomiona o:', new Date().toLocaleTimeString());
+    console.log('☀️ loadSolarData() uruchomiona o:', new Date().toLocaleTimeString());
 
     const refreshBtn = document.getElementById('sw-refresh-btn');
     if(refreshBtn) refreshBtn.classList.add('loading');
@@ -1822,7 +2531,7 @@ async function loadSolarData() {
     const seasonEl = document.getElementById('sw-season');
     if(seasonEl) seasonEl.textContent = season.label;
 
-    // Upewnij się że loading jest widoczny na start
+    // Upewnij si? ?e loading jest widoczny na start
     const loadingEl = document.getElementById('sw-loading');
     if (loadingEl) {
         loadingEl.style.display = 'flex';
@@ -1833,11 +2542,12 @@ async function loadSolarData() {
         const url = `https://api.open-meteo.com/v1/forecast` +
             `?latitude=${LAT}&longitude=${LNG}` +
             `&current=shortwave_radiation,cloud_cover,is_day,temperature_2m,weather_code,relative_humidity_2m` +
+            `&hourly=shortwave_radiation` +
             `&daily=shortwave_radiation_sum,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,weather_code` +
             `&timezone=Europe/Warsaw` +
-            `&forecast_days=14`;
+            `&forecast_days=14&past_days=1`;
 
-        console.log('☀ Fetch URL:', url);
+        console.log('☀️ Fetch URL:', url);
 
         const response = await fetchWithTimeout(url, 8000);
         
@@ -1846,9 +2556,9 @@ async function loadSolarData() {
         }
 
         const data = await response.json();
-        console.log('☀ Dane z API:', data.current);
+        console.log('☀️ Dane z API:', data.current);
 
-        // ── Wschód / Zachód ───────────────────────────────
+// Wschd / Zachd
         const sunriseIso = data.daily?.sunrise?.[0];
         const sunsetIso  = data.daily?.sunset?.[0];
 
@@ -1856,7 +2566,7 @@ async function loadSolarData() {
             throw new Error('Brak danych sunrise/sunset w odpowiedzi API');
         }
 
-        // WAŻNE: Open-Meteo zwraca czas lokalny — używamy formatTime bez konwersji
+// WANE: Open-Meteo zwraca czas lokalny uywamy formatTime bez konwersji
         const sunriseTs = new Date(sunriseIso).getTime();
         const sunsetTs  = new Date(sunsetIso).getTime();
         const nowTs     = now.getTime();
@@ -1866,9 +2576,9 @@ async function loadSolarData() {
         if (elSunrise) elSunrise.textContent = formatTime(sunriseIso);
         if (elSunset)  elSunset.textContent  = formatTime(sunsetIso);
 
-        console.log('☀ Wschód:', formatTime(sunriseIso), '| Zachód:', formatTime(sunsetIso));
+        console.log('☀️ Wschód:', formatTime(sunriseIso), '| Zachód:', formatTime(sunsetIso));
         
-        // ── Dane meteo ────────────────────────────────────
+// Dane meteo
         const radiation = Math.round(data.current?.shortwave_radiation ?? 0);
         const clouds    = Math.round(data.current?.cloud_cover ?? 0);
         const isDay     = data.current?.is_day === 1;
@@ -1886,7 +2596,7 @@ async function loadSolarData() {
             ? Math.round((radiation / 1000) * PEAK_POWER * efficiency)
             : 0;
 
-        // Aktualizacja wyglądu słońca (Dzień/Noc)
+        // Aktualizacja wygl?du s?o?ca (Dzie?/Noc)
         const sunWrapper = document.getElementById('sun-wrapper');
         const heroSection = document.querySelector('.hero');
         const solarWidget = document.querySelector('.solar-widget');
@@ -1895,12 +2605,12 @@ async function loadSolarData() {
         if (sunWrapper) {
             if (visualIsDay) {
                 sunWrapper.classList.remove('is-night');
-                sunWrapper.removeAttribute('data-phase'); // Reset fazy w dzień
+                sunWrapper.removeAttribute('data-phase'); // Reset fazy w dzie?
                 sunWrapper.style.removeProperty('--moon-halo-alpha');
             } else {
                 sunWrapper.classList.add('is-night');
                 
-                // ── OBLICZANIE FAZY KSIĘŻYCA (Lokalnie) ──
+// OBLICZANIE FAZY KSIYCA (Lokalnie)
                 const moon = getMoonData(new Date());
                 applyMoonVisuals(sunWrapper, moon);
                 console.log(`🌙 Faza księżyca: idx=${moon.phaseIndex}, illum=${moon.illumination.toFixed(3)}, waxing=${moon.waxing}`);
@@ -1909,12 +2619,14 @@ async function loadSolarData() {
         if (heroSection) {
             if (visualIsDay) {
                 heroSection.classList.remove('is-night');
+                stopHeroSky();
             } else {
                 heroSection.classList.add('is-night');
+                startHeroSky();
             }
             
-            // ── EFEKT MGŁY (FOG) ──
-            // Włącz mgłę jeśli wilgotność > 90% LUB kod pogody to mgła (45, 48)
+// EFEKT MGY (FOG)
+            // W??cz mg?? je?li wilgotno?? > 90% LUB kod pogody to mg?a (45, 48)
             const wCode = data.current?.weather_code ?? 0;
             const isFoggy = humidity >= 90 || (wCode >= 45 && wCode <= 48);
             
@@ -1922,15 +2634,20 @@ async function loadSolarData() {
             else heroSection.classList.remove('is-foggy');
         }
         if (solarWidget) {
-            if (visualIsDay) solarWidget.classList.remove('is-night');
-            else { solarWidget.classList.add('is-night'); startStars(); }
+            if (visualIsDay) {
+                solarWidget.classList.remove('is-night');
+                stopStars();
+            } else {
+                solarWidget.classList.add('is-night');
+                startStars();
+            }
         }
 
         if (titleText) {
             titleText.textContent = visualIsDay ? 'Nasłonecznienie dzisiaj' : 'Warunki nocne';
         }
 
-        // Aktualizacja Favicon (Słońce / Księżyc)
+        // Aktualizacja Favicon (S?o?ce / Ksi??yc)
         const favicon = document.querySelector("link[rel~='icon']");
         if (favicon) {
             const svgAnim = `<style>text{animation:f 1.5s ease-out}@keyframes f{from{opacity:0}to{opacity:1}}</style>`;
@@ -1945,7 +2662,7 @@ async function loadSolarData() {
             themeMeta.content = visualIsDay ? '#F7F3EC' : '#0f172a';
         }
 
-        console.log(`☀ Promieniowanie: ${radiation} W/m² | Zachmurzenie: ${clouds}% | Wilgotność: ${humidity}%`);
+        console.log(`☀️ Promieniowanie: ${radiation} W/m² | Zachmurzenie: ${clouds}% | Wilgotność: ${humidity}%`);
 
         const elRadiation = document.getElementById('sw-radiation');
         const elClouds    = document.getElementById('sw-clouds');
@@ -1965,7 +2682,7 @@ async function loadSolarData() {
             else elTemp.style.color = 'var(--sun)';                    // Domyślny (pomarańczowy)
         }
 
-        // ── Produkcja dzienna (całkowanie) ────────────────
+// Produkcja dzienna (cakowanie)
         const dayLengthHours = (sunsetTs - sunriseTs) / (1000 * 60 * 60);
         let nowRatio = (nowTs - sunriseTs) / (sunsetTs - sunriseTs);
         nowRatio = Math.max(0, Math.min(1, nowRatio));
@@ -1978,16 +2695,16 @@ async function loadSolarData() {
         const dailyValEl = document.getElementById('sw-daily-val');
         if (dailyValEl) dailyValEl.textContent = producedKWh;
 
-        // Odśwież licznik zarobku po załadowaniu danych dziennych
+        // Od?wie? licznik zarobku po za?adowaniu danych dziennych
         if (typeof updateEarnedCounter === 'function') updateEarnedCounter();
 
-        console.log(`☀ Produkcja dziś: ${producedKWh} kWh (nowRatio: ${nowRatio.toFixed(2)})`);
+        console.log(`☀️ Produkcja dzi?: ${producedKWh} kWh (nowRatio: ${nowRatio.toFixed(2)})`);
 
-        // ── Badges (Weather Code) ────────────────────────
+// Badges (Weather Code)
         const wCode = data.current?.weather_code ?? 0;
         let wIcon = '', wText = '';
 
-        // Mapowanie kodów WMO na ikony i tekst
+        // Mapowanie kod?w WMO na ikony i tekst
         if (wCode === 0) {
             wIcon = visualIsDay ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
             wText = 'Bezchmurnie';
@@ -2024,7 +2741,7 @@ async function loadSolarData() {
                 `<span class="sw-season-badge sw-animate-in" style="background:rgba(125,211,252,0.1);border-color:rgba(125,211,252,0.25);color:#7DD3FC;">${wIcon} ${wText} (${clouds}%)</span>`;
         }
         
-        // ── Ukryj loading, pokaż canvas ───────────────────
+// Ukryj loading, poka canvas
         if (loadingEl) loadingEl.style.display = 'none';
         
         const canvas = document.getElementById('solarCanvas');
@@ -2038,15 +2755,17 @@ async function loadSolarData() {
                 sunriseTs, sunsetTs, nowTs,
                 radiation, clouds,
                 daily: data.daily,
+                hourly: data.hourly,
                 currentProduction: producedKWh
             };
 
             drawSolarCurve(); 
+            window.dispatchEvent(new CustomEvent('solarDataLoaded'));
         } else {
-            console.warn('☀ Nie znaleziono elementu #solarCanvas!');
+            console.warn('☀️ Nie znaleziono elementu #solarCanvas!');
         }
         
-        // Animacja wartości statystyk
+        // Animacja warto?ci statystyk
         document.querySelectorAll('.sw-stat-val').forEach(el => {
             el.classList.remove('sw-animate-in');
             void el.offsetWidth;
@@ -2058,19 +2777,19 @@ async function loadSolarData() {
             renderForecast(currentForecastView);
         }
 
-        // Auto-odświeżanie co 10 min
+        // Auto-od?wie?anie co 10 min
         solarTimeout = setTimeout(loadSolarData, 10 * 60 * 1000);
 
     } catch (err) {
         // Rozróżniamy timeout od innych błędów
         const isTimeout = err.name === 'AbortError';
         const msg = isTimeout
-            ? '⏱ Timeout — serwer nie odpowiedział w 8s'
-            : `⚠ ${err.message}`;
+            ? '⏱ Timeout — serwer nie odpowiedział w 8 s'
+            : `⚠️ ${err.message}`;
 
-        console.error('☀ Solar widget błąd:', err);
+        console.error('☀️ Solar widget błąd:', err);
 
-        // Fallback: Ustaw tryb nocny na podstawie godziny systemowej, jeśli API zawiodło
+        // Fallback: Ustaw tryb nocny na podstawie godziny systemowej, je?li API zawiod?o
         const h = new Date().getHours();
         if (DEBUG_FORCE_NIGHT || h < 6 || h >= 20) {
             const sunWrapper = document.getElementById('sun-wrapper');
@@ -2080,6 +2799,7 @@ async function loadSolarData() {
             if (heroSection) {
                 const moon = getMoonData(new Date());
                 heroSection.classList.add('is-night');
+                startHeroSky();
                 applyMoonVisuals(sunWrapper, moon);
             }
             if (solarWidget) { solarWidget.classList.add('is-night'); startStars(); }
@@ -2133,7 +2853,7 @@ if (solarCanvasEl) {
         }
     });
 
-    // Obsługa myszy na wykresie
+    // Obs?uga myszy na wykresie
     solarCanvasEl.addEventListener('mousemove', (e) => {
         const rect = solarCanvasEl.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -2143,7 +2863,7 @@ if (solarCanvasEl) {
         drawSolarCurve(null);
     });
 
-    // Obsługa przycisku odświeżania
+    // Obs?uga przycisku od?wie?ania
     const refreshBtnEl = document.getElementById('sw-refresh-btn');
     if (refreshBtnEl) {
         refreshBtnEl.addEventListener('click', () => {
@@ -2151,7 +2871,7 @@ if (solarCanvasEl) {
         });
     }
 
-    // Obsługa przełączania widoku prognozy
+    // Obs?uga prze??czania widoku prognozy
     document.querySelectorAll('.sw-toggle-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.sw-toggle-btn').forEach(b => b.classList.remove('active'));
@@ -2162,21 +2882,21 @@ if (solarCanvasEl) {
     });
 }
 
-// ── SUN PARALLAX EFFECT ──────────────────────────────
+// SUN PARALLAX EFFECT
 const sunWrapper = document.getElementById('sun-wrapper');
 if (sunWrapper) {
     document.addEventListener('mousemove', (e) => {
-        // Oblicz przesunięcie względem środka ekranu (subtelny efekt: mnożnik 0.02)
+        // Oblicz przesuni?cie wzgl?dem ?rodka ekranu (subtelny efekt: mno?nik 0.02)
         const x = (e.clientX - window.innerWidth / 2) * -0.02;
         const y = (e.clientY - window.innerHeight / 2) * -0.02;
         sunWrapper.style.transform = `translate(${x}px, ${y}px)`;
     });
 }
 
-// ── HERO SAVINGS ANIMATION ───────────────────────────
+// HERO SAVINGS ANIMATION
 const heroSavingsEl = document.getElementById('hero-savings-val');
 if (heroSavingsEl) {
-    // Wartość docelowa zgodna z kalkulatorem (180L, 4 os, 1.10zł)
+    // Warto?? docelowa zgodna z kalkulatorem (180L, 4 os, 1.10z?)
     const targetSavings = 1640; 
     const animDuration = 2500;
     let animStart = null;
@@ -2189,7 +2909,7 @@ if (heroSavingsEl) {
         const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
         
         const currentVal = Math.floor(ease * targetSavings);
-        // Formatowanie z spacją jako separatorem tysięcy
+        // Formatowanie z spacj? jako separatorem tysi?cy
         heroSavingsEl.textContent = `≈ ${currentVal.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} zł`;
 
         if (progress < 1) requestAnimationFrame(animateHeroSavings);
@@ -2197,7 +2917,7 @@ if (heroSavingsEl) {
     requestAnimationFrame(animateHeroSavings);
 }
 
-// ── BOILER ANIMATION ON SCROLL ───────────────────────
+// BOILER ANIMATION ON SCROLL
 let boilerAnimFrame;
 const boilerObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
@@ -2234,7 +2954,7 @@ const boilerObserver = new IntersectionObserver((entries) => {
             }
         } else {
             entry.target.classList.remove('animate-boiler');
-            // Usuń parę, gdy bojler znika z widoku
+            // Usu? par?, gdy bojler znika z widoku
             entry.target.classList.remove('steaming');
             if (boilerAnimFrame) cancelAnimationFrame(boilerAnimFrame);
             if (tempEl) tempEl.textContent = '10°C';
@@ -2247,7 +2967,7 @@ if (boilerVisual) {
     boilerObserver.observe(boilerVisual);
 }
 
-// ── HERO COUNTERS ANIMATION ───────────────────────
+// HERO COUNTERS ANIMATION
 function initHeroCounters() {
     const counters = document.querySelectorAll('.js-counter');
     if (counters.length === 0) return;
@@ -2261,7 +2981,7 @@ function initHeroCounters() {
                 const suffix = el.dataset.suffix || '';
                 const decimals = (el.dataset.decimals && parseInt(el.dataset.decimals)) || 0;
 
-                // Używamy istniejącej, zaawansowanej funkcji animateValue
+                // U?ywamy istniej?cej, zaawansowanej funkcji animateValue
                 animateValue(el, 0, target, 2000, { prefix, suffix, decimals });
 
                 observer.unobserve(el);
@@ -2273,7 +2993,7 @@ function initHeroCounters() {
 }
 initHeroCounters();
 
-// ── HERO PARTICLES ─────────────────────────────────
+// HERO PARTICLES
 function initHeroParticles() {
     const container = document.getElementById('hero-particles');
     if (!container) return;
@@ -2307,7 +3027,7 @@ function initHeroParticles() {
 }
 initHeroParticles();
 
-// ── IDEA POPOVER (Zgłoś pomysł) ────────────────────
+// IDEA POPOVER (Zgo pomys)
 const ideaBtn = document.getElementById('btn-idea');
 const ideaPopover = document.getElementById('idea-popover');
 const ideaClose = document.getElementById('idea-close');
@@ -2322,12 +3042,12 @@ if (ideaBtn && ideaPopover && ideaClose) {
     };
 
     ideaBtn.addEventListener('click', (e) => {
-        e.stopPropagation(); // Zapobiega natychmiastowemu zamknięciu przez document click
+        e.stopPropagation(); // Zapobiega natychmiastowemu zamkni?ciu przez document click
         togglePopover();
     });
     ideaClose.addEventListener('click', closePopover);
     
-    // Zamknij po kliknięciu poza formularz
+    // Zamknij po klikni?ciu poza formularz
     document.addEventListener('click', (e) => {
         if (ideaPopover.classList.contains('open') && !ideaPopover.contains(e.target) && e.target !== ideaBtn) {
             closePopover();
@@ -2342,7 +3062,7 @@ if (ideaBtn && ideaPopover && ideaClose) {
             const text = textarea.value.trim();
             if (!text) return;
 
-            // Generuj prosty hash tekstu, aby wykryć duplikaty
+            // Generuj prosty hash tekstu, aby wykry? duplikaty
             const hash = Array.from(text).reduce((acc, char) => (acc << 5) - acc + char.charCodeAt(0) | 0, 0);
             
             // Sprawdź LocalStorage
@@ -2357,7 +3077,7 @@ if (ideaBtn && ideaPopover && ideaClose) {
                 return;
             }
 
-            // Pokaż status wysyłania
+            // Poka? status wysy?ania
             const btn = ideaForm.querySelector('button[type="submit"]');
             const originalText = btn.textContent;
             btn.textContent = 'Wysyłanie...';
@@ -2379,7 +3099,7 @@ if (ideaBtn && ideaPopover && ideaClose) {
             })
             .then(response => {
                 if (response.ok) {
-                    // Zapisz hash jako wysłany dopiero po sukcesie
+                    // Zapisz hash jako wys?any dopiero po sukcesie
                     sentHashes.push(hash);
                     localStorage.setItem(storageKey, JSON.stringify(sentHashes));
 
@@ -2408,14 +3128,14 @@ if (ideaBtn && ideaPopover && ideaClose) {
     }
 }
 
-// ── ROI CHART & PDF EXPORT ─────────────────────────
+// ROI CHART PDF EXPORT
 let roiChartInstance = null;
 
 function initROIChart() {
     const ctx = document.getElementById('roiChart');
     if (!ctx) return;
 
-    // Elementy wejściowe (suwaki)
+    // Elementy wej?ciowe (suwaki)
     const inputs = {
         cost: document.getElementById('roi-cost'),
         saving: document.getElementById('roi-saving'),
@@ -2424,10 +3144,10 @@ function initROIChart() {
         years: document.getElementById('roi-years')
     };
 
-    // Jeśli brak kluczowych elementów, przerwij
+    // Je?li brak kluczowych element?w, przerwij
     if (!inputs.cost || !inputs.saving || !inputs.years) return;
 
-    // Elementy wyświetlające wartości suwaków
+    // Elementy wy?wietlaj?ce warto?ci suwak?w
     const displays = {
         cost: document.getElementById('roi-cost-val'),
         saving: document.getElementById('roi-saving-val'),
@@ -2448,7 +3168,7 @@ function initROIChart() {
         infoTotal: document.getElementById('roi-info-total')
     };
 
-    // Domyślne wartości do resetu
+    // Domy?lne warto?ci do resetu
     const defaults = {
         cost: 3500,
         saving: 1640,
@@ -2458,7 +3178,7 @@ function initROIChart() {
     };
 
     let currentPaybackYear = null;
-    let previousTotalGain = 0; // Przechowuje poprzednią wartość dla animacji
+    let previousTotalGain = 0; // Przechowuje poprzedni? warto?? dla animacji
 
     function updateChart() {
         const cost = parseFloat(inputs.cost.value);
@@ -2467,7 +3187,7 @@ function initROIChart() {
         const deposit = parseFloat(inputs.deposit.value) / 100;
         const years = parseInt(inputs.years.value);
 
-        // Aktualizacja wyświetlanych wartości
+        // Aktualizacja wy?wietlanych warto?ci
         if(displays.cost) displays.cost.textContent = cost.toLocaleString('pl-PL') + ' zł';
         if(displays.saving) displays.saving.textContent = saving.toLocaleString('pl-PL') + ' zł';
         if(displays.inflation) displays.inflation.textContent = (inflation * 100).toFixed(1) + '%';
@@ -2478,15 +3198,15 @@ function initROIChart() {
 
         const labels = Array.from({length: years + 1}, (_, i) => i); // Lata 0..N
         
-        // 1. Skumulowany zysk z instalacji (Oszczędności - Inwestycja)
+        // 1. Skumulowany zysk z instalacji (Oszcz?dno?ci - Inwestycja)
         // Rok 0: -3500 zł
-        // Rok 1: -3500 + Oszczędność (z uwzgl. wzrostu cen prądu)
+        // Rok 1: -3500 + Oszcz?dno?? (z uwzgl. wzrostu cen pr?du)
         const dataSolar = [ -cost ];
         
-        // 2. Alternatywa: Lokata (Gdybyś nie kupił bojlera, tylko wpłacił 3500 na lokatę)
-        // Rok 0: 0 (punkt odniesienia - masz gotówkę)
+        // 2. Alternatywa: Lokata (Gdyby? nie kupi? bojlera, tylko wp?aci? 3500 na lokat?)
+        // Rok 0: 0 (punkt odniesienia - masz got?wk?)
         // Rok 1: 3500 * 5%
-        // UWAGA: Żeby porównać "jabłka do jabłek" na wykresie zysku netto:
+// UWAGA: eby porwna "jabka do jabek" na wykresie zysku netto:
         // Lokata to zysk z odsetek od kwoty inwestycji.
         const dataDeposit = [ 0 ];
         
@@ -2496,7 +3216,7 @@ function initROIChart() {
         let paybackYear = null;
 
         for (let i = 1; i <= years; i++) {
-            // Wzrost ceny prądu zwiększa oszczędność w kolejnym roku
+            // Wzrost ceny pr?du zwi?ksza oszcz?dno?? w kolejnym roku
             const currentSaving = saving * Math.pow(1 + inflation, i - 1);
             const prevSolar = cumSolar;
             cumSolar += currentSaving;
@@ -2508,7 +3228,7 @@ function initROIChart() {
                 paybackYear = (i - 1) + fraction;
             }
 
-            // Lokata (procent składany)
+            // Lokata (procent sk?adany)
             const interestCalc = depositCapital * deposit;
             depositCapital += interestCalc;
             cumDeposit += interestCalc;
@@ -2582,12 +3302,12 @@ function initROIChart() {
                         const xAxis = chart.scales.x;
                         const yAxis = chart.scales.y;
                         
-                        // Interpolacja pozycji X dla dokładnego roku (np. 2.4)
+                        // Interpolacja pozycji X dla dok?adnego roku (np. 2.4)
                         const idx = Math.floor(currentPaybackYear);
                         const dec = currentPaybackYear - idx;
                         const x1 = xAxis.getPixelForValue(idx);
                         const x2 = xAxis.getPixelForValue(idx + 1);
-                        // Zabezpieczenie na wypadek końca wykresu
+                        // Zabezpieczenie na wypadek ko?ca wykresu
                         const x = x1 + (x2 ? (x2 - x1) * dec : 0);
 
                         if (x < xAxis.left || x > xAxis.right) return;
@@ -2637,12 +3357,12 @@ function initROIChart() {
         }
     }
 
-    // Podłącz zdarzenia do wszystkich suwaków
+    // Pod??cz zdarzenia do wszystkich suwak?w
     Object.values(inputs).forEach(el => {
         if(el) el.addEventListener('input', updateChart);
     });
 
-    // Obsługa przycisku reset ROI
+    // Obs?uga przycisku reset ROI
     const resetBtn = document.getElementById('btn-reset-roi');
     if(resetBtn) {
         resetBtn.addEventListener('click', () => {
@@ -2665,11 +3385,11 @@ if (document.readyState === 'loading') {
     initROIChart();
 }
 
-// ── COMMODITY PRICES (Paliwa) ──────────────────────
+// COMMODITY PRICES (Paliwa)
 function updateCommodityPrices() {
-    // Parametry energetyczne paliw (kaloryczność * sprawność kotła)
+    // Parametry energetyczne paliw (kaloryczno?? * sprawno?? kot?a)
     const config = {
-        wood:   { kwh: 1450, eff: 0.70, def: 400 }, // def = cena domyślna
+        wood:   { kwh: 1450, eff: 0.70, def: 400 }, // def = cena domy?lna
         coal:   { kwh: 7000, eff: 0.80, def: 1600 },
         gas:    { kwh: 10.5, eff: 0.95, def: 3.80 },
         pellet: { kwh: 4900, eff: 0.85, def: 1400 }
@@ -2683,7 +3403,7 @@ function updateCommodityPrices() {
         const price = parseFloat(input.value) || 0;
         const data = config[type];
         
-        // Koszt 1 kWh ciepła = Cena / (Energia * Sprawność)
+        // Koszt 1 kWh ciep?a = Cena / (Energia * Sprawno??)
         const costPerKwh = price / (data.kwh * data.eff);
         const costGj = costPerKwh * 277.78;
 
@@ -2693,7 +3413,7 @@ function updateCommodityPrices() {
         
         if(valEl) valEl.textContent = `~${costPerKwh.toFixed(2)} zł`;
         
-        // Skalowanie paska (względem max ceny ok 1.50 zł)
+        // Skalowanie paska (wzgl?dem max ceny ok 1.50 zł)
         if(barEl) {
             const pct = Math.min(100, (costPerKwh / 1.50) * 100);
             barEl.style.width = `${pct}%`;
@@ -2712,7 +3432,7 @@ function updateCommodityPrices() {
         }
     });
 
-    // Obsługa przycisku reset
+    // Obs?uga przycisku reset
     const resetBtn = document.getElementById('btn-reset-fuel');
     if(resetBtn) {
         resetBtn.addEventListener('click', () => {
@@ -2727,7 +3447,7 @@ function updateCommodityPrices() {
     }
 }
 
-// Uruchom aktualizację cen przy starcie
+// Uruchom aktualizacj? cen przy starcie
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', updateCommodityPrices);
 } else {
@@ -2759,11 +3479,11 @@ document.getElementById('btn-export-pdf')?.addEventListener('click', async () =>
     y += 10;
     
     const fields = [
-        `Cena pradu: ${document.getElementById('val-price')?.textContent || '-'}`,
+        `Cena prądu: ${document.getElementById('val-price')?.textContent || '-'}`,
         `Osoby w domu: ${document.getElementById('val-persons')?.textContent || '-'}`,
-        `Pojemnosc bojlera: ${document.getElementById('val-volume')?.textContent || '-'}`,
-        `Roczna oszczednosc: ${document.getElementById('result-saving')?.textContent || '-'}`,
-        `Prognozowany wzrost cen pradu: ${document.getElementById('roi-inflation')?.value}%`
+        `Pojemność bojlera: ${document.getElementById('val-volume')?.textContent || '-'}`,
+        `Roczna oszczędność: ${document.getElementById('result-saving')?.textContent || '-'}`,
+        `Prognozowany wzrost cen prądu: ${document.getElementById('roi-inflation')?.value}%`
     ];
 
     fields.forEach(line => {
@@ -2788,7 +3508,7 @@ document.getElementById('btn-export-pdf')?.addEventListener('click', async () =>
     doc.save("Raport_SlonecznyBojler.pdf");
 });
 
-// ── MOBILE NAVIGATION (HAMBURGER) ───────────────────
+// MOBILE NAVIGATION (HAMBURGER)
 const nav = document.querySelector('nav');
 const hamburgerBtn = document.getElementById('hamburger-btn');
 const navLinksContainer = document.querySelector('.nav-links');
@@ -2796,11 +3516,11 @@ const navLinksContainer = document.querySelector('.nav-links');
 if (hamburgerBtn && nav && navLinksContainer) {
     hamburgerBtn.addEventListener('click', () => {
         nav.classList.toggle('nav-open');
-        // Zablokuj przewijanie tła, gdy menu jest otwarte
+        // Zablokuj przewijanie t?a, gdy menu jest otwarte
         document.body.style.overflow = nav.classList.contains('nav-open') ? 'hidden' : '';
     });
 
-    // Zamknij menu po kliknięciu w link
+    // Zamknij menu po klikni?ciu w link
     navLinksContainer.addEventListener('click', (e) => {
         if (e.target.tagName === 'A') {
             nav.classList.remove('nav-open');
@@ -2809,7 +3529,7 @@ if (hamburgerBtn && nav && navLinksContainer) {
     });
 }
 
-// ── MAGAZYN ENERGII (zakładki + kalkulatory) ──────────
+// MAGAZYN ENERGII (zakadki + kalkulatory)
 (function initEnergyStorageSection() {
     const root = document.getElementById('magazyn-energii');
     if (!root) return;
@@ -2838,7 +3558,7 @@ if (hamburgerBtn && nav && navLinksContainer) {
         // Battery
         kwhSlider: document.getElementById('me-sl-kwh'),
         kwhOut: document.getElementById('me-val-kwh'),
-        hpCheck: document.getElementById('me-check-hp'), // Checkbox pompy ciepła
+        hpCheck: document.getElementById('me-check-hp'), // Checkbox pompy ciep?a
         goalSelect: document.getElementById('me-sel-goal'),
         autonomyWrap: document.getElementById('me-autonomy-wrap'),
         autonomySlider: document.getElementById('me-sl-auto'),
@@ -2916,7 +3636,7 @@ if (hamburgerBtn && nav && navLinksContainer) {
         });
     }
 
-    // ── Profil dobowy ───────────────────────────────────────────
+// Profil dobowy
     const PROFILE_DATA = {
         working: {
             direct: 0.22,
@@ -2935,7 +3655,7 @@ if (hamburgerBtn && nav && navLinksContainer) {
         }
     };
 
-    // ── Dane sezonowe ────────────────────────────────────────────
+// Dane sezonowe
     const SEASON_DATA = {
         annual: { pvFactor:0.85, nightMul:1.00, pvHours:10, pvShape:[0,0,0,0,0,0,0.10,0.30,0.55,0.75,0.90,1.00,1.00,0.90,0.75,0.55,0.30,0.10,0,0,0,0,0,0] },
         summer: { pvFactor:1.30, nightMul:0.72, pvHours:14, pvShape:[0,0,0,0,0,0.05,0.20,0.50,0.75,0.90,1.00,1.00,1.00,1.00,0.90,0.75,0.55,0.35,0.15,0.05,0,0,0,0] },
@@ -2945,12 +3665,23 @@ if (hamburgerBtn && nav && navLinksContainer) {
 
     function calcBattery() {
         let dailyAvg = state.annualKwh / 365;
-        
-        // Korekta dla pompy ciepła (nierównomierny rozkład roczny)
+
+        // Korekta dla pompy ciep?a (nier?wnomierny rozk?ad roczny)
         if (state.heatPump) {
-            if (state.season === 'winter') dailyAvg *= 2.4; // Zimą zużycie znacznie wyższe niż średnia
+            if (state.season === 'winter') dailyAvg *= 2.4; // Zim? zu?ycie znacznie wy?sze ni? ?rednia
             else if (state.season === 'spring') dailyAvg *= 1.1;
-            else if (state.season === 'summer') dailyAvg *= 0.5; // Latem tylko CWU + chłodzenie (mniej niż średnia roczna z ogrzewaniem)
+            else if (state.season === 'summer') dailyAvg *= 0.5; // Latem tylko CWU + ch?odzenie (mniej ni? ?rednia roczna z ogrzewaniem)
+        }
+
+        let livePvSeries = null;
+        if (state.season === 'live' && solarState && solarState.hourly) {
+            // Pobierz dane promieniowania dla dzisiejszej doby (indeksy 24-47 przy past_days=1)
+            const todayRad = solarState.hourly.shortwave_radiation.slice(24, 48);
+            if (todayRad && todayRad.length === 24) {
+                const efficiency = 0.82;
+                // Przelicz promieniowanie na kW dla mocy PV wybranej w magazynie (state.pvKwp)
+                livePvSeries = todayRad.map(rad => (rad / 1000) * state.pvKwp * efficiency);
+            }
         }
 
         const pData = PROFILE_DATA[state.profile] || PROFILE_DATA.working;
@@ -2975,7 +3706,7 @@ if (hamburgerBtn && nav && navLinksContainer) {
         const effective = usable * 0.80;
         const cover = nightEnergy > 0 ? clamp((effective / nightEnergy) * 100, 0, 99) : 0;
 
-        return { cap, usable, modules, cover, dailyAvg, nightShare, wastedPct, pData, sData };
+        return { cap, usable, modules, cover, dailyAvg, nightShare, wastedPct, pData, sData, livePvSeries };
     }
 
     function drawDailyChart(r, hoverX = null) {
@@ -2998,10 +3729,18 @@ if (hamburgerBtn && nav && navLinksContainer) {
         const plotW = w - padL - padR;
         const plotH = h - padT - padB;
         if (plotW <= 0 || plotH <= 0) return;
-        const pvMax   = r.dailyAvg * r.sData.pvFactor * 0.55;
+
         const loadMax = r.dailyAvg / 13;
         const n = 24;
-        const pvSeries   = r.sData.pvShape.map(function(s) { return pvMax * s; });
+
+        let pvSeries;
+        if (r.livePvSeries) {
+            pvSeries = r.livePvSeries;
+        } else {
+            const pvMax = r.dailyAvg * r.sData.pvFactor * 0.55;
+            pvSeries = r.sData.pvShape.map(function(s) { return pvMax * s; });
+        }
+
         const loadSeries = r.pData.hourly.map(function(s)  { return loadMax * s; });
         const battSeries = loadSeries.map(function(l, i)   { return (i < 6 || i >= 17) ? Math.min(l, r.cap * 0.9 / 12) : 0; });
         const maxVal = Math.max(1, Math.max.apply(null, pvSeries), Math.max.apply(null, loadSeries));
@@ -3045,7 +3784,7 @@ if (hamburgerBtn && nav && navLinksContainer) {
             ctx.fillText(hr + ':00', padL + (hr / (n-1)) * plotW, padT + plotH + 4);
         });
 
-        // ── INTERAKTYWNA LEGENDA (TOOLTIP) ──
+// INTERAKTYWNA LEGENDA (TOOLTIP)
         if (hoverX !== null && hoverX >= padL && hoverX <= padL + plotW) {
             const ratio = (hoverX - padL) / plotW;
             const idx = Math.min(n - 1, Math.max(0, Math.round(ratio * (n - 1))));
@@ -3061,19 +3800,19 @@ if (hamburgerBtn && nav && navLinksContainer) {
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Pobranie wartości dla danej godziny
+            // Pobranie warto?ci dla danej godziny
             const vPV = pvSeries[idx];
             const vLoad = loadSeries[idx];
             const vBatt = battSeries[idx];
 
-            // Rysowanie pudełka z legendą
+            // Rysowanie pude?ka z legend?
             const tipW = 120;
-            const tipH = vBatt > 0.01 ? 75 : 60; // Wyższy jeśli jest bateria
+            const tipH = vBatt > 0.01 ? 75 : 60; // Wy?szy je?li jest bateria
             let tipX = lineX + 10;
             if (tipX + tipW > w) tipX = lineX - tipW - 10;
             const tipY = padT + 5;
 
-            // Tło dymka
+            // T?o dymka
             ctx.shadowColor = 'rgba(0,0,0,0.15)';
             ctx.shadowBlur = 8;
             ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
@@ -3101,7 +3840,7 @@ if (hamburgerBtn && nav && navLinksContainer) {
             };
 
             drawRow('#F59E0B', 'PV', vPV);
-            drawRow('#3b82f6', 'Zużycie', vLoad);
+            drawRow('#3b82f6', 'Zu?ycie', vLoad);
             if (vBatt > 0.01) drawRow('#16a34a', 'Bateria', vBatt);
         }
     }
@@ -3179,7 +3918,7 @@ if (hamburgerBtn && nav && navLinksContainer) {
             tip = 'Hybrydowy: zwykle minimum 5 kW, a moc dobiera się do PV i obciążenia.';
         } else if (state.invType === 'ongrid') {
             target = Math.max(state.pvKwp * 0.9, 2);
-            tip = 'On-grid: falownik dobiera się głównie do mocy PV (często DC/AC ~1.0–1.2).';
+            tip = 'On-grid: falownik dobiera się głównie do mocy PV (często DC/AC ~1.0-1.2).';
         } else {
             target = Math.max(state.peakLoadKw * 1.3, 2);
             tip = 'Off-grid: dolicz zapas na rozruch (silniki, pompy, sprężarki) i ograniczenia mocy chwilowej.';
@@ -3286,7 +4025,7 @@ if (hamburgerBtn && nav && navLinksContainer) {
 
         if (!el.pvCards || !el.pvTip) return;
 
-        const baseYieldPerKwp = 1000; // Łomża ~950–1050 kWh/kWp/rok
+        const baseYieldPerKwp = 1000; // Łomża ~950-1050 kWh/kWp/rok
         const tiltFactor = getTiltFactor(state.tiltDeg);
         const orientFactor = clamp(state.orientPct / 100, 0.4, 1.0);
 
@@ -3335,6 +4074,10 @@ if (hamburgerBtn && nav && navLinksContainer) {
     }
 
     function bindEvents() {
+        window.addEventListener('solarDataLoaded', () => {
+            if (state.season === 'live') renderBattery();
+        });
+
         if (el.dayCanvas) {
             el.dayCanvas.addEventListener('mousemove', (e) => {
                 if (!currentBatteryResult) return;
@@ -3446,13 +4189,13 @@ if (hamburgerBtn && nav && navLinksContainer) {
             if (resizeRaf) cancelAnimationFrame(resizeRaf);
             resizeRaf = requestAnimationFrame(() => {
                 renderPv();
-                renderBattery(); // Przerysuj też wykres baterii po zmianie rozmiaru
+                renderBattery(); // Przerysuj te? wykres baterii po zmianie rozmiaru
             });
         });
     }
 
     initTabs();
-    // Upewnij się, że oba suwaki PV startują z tej samej wartości
+    // Upewnij si?, ?e oba suwaki PV startuj? z tej samej warto?ci
     syncPvValue(state.pvKwp);
 
     bindEvents();
@@ -3461,7 +4204,7 @@ if (hamburgerBtn && nav && navLinksContainer) {
     renderPv();
 })();
 
-// ── BLOG TAG FILTERING ───────────────────────────────
+// BLOG TAG FILTERING
 const filtersContainer = document.querySelector('.blog-filters');
 const blogCards = document.querySelectorAll('.blog-card[data-tags]');
 
@@ -3486,13 +4229,13 @@ if (filtersContainer && blogCards.length > 0) {
     });
 }
 
-// ── SHOOTING STAR LOGIC ──────────────────────────────
+// SHOOTING STAR LOGIC
 function scheduleShootingStar() {
     const hero = document.querySelector('.hero');
     const star = document.getElementById('shooting-star');
     
     if (hero && star && hero.classList.contains('is-night')) {
-        // Losowa pozycja startowa (górna prawa ćwiartka)
+        // Losowa pozycja startowa (g?rna prawa ?wiartka)
         star.style.top = (Math.random() * 40) + '%';
         star.style.right = (Math.random() * 40) + '%';
         
@@ -3606,3 +4349,6 @@ function initImageLightbox() {
     });
 }
 initImageLightbox();
+
+
+

@@ -165,8 +165,8 @@
             </div>
             <ul class="nav-links">
                 <li><a href="#zalety">Zalety</a></li>
-                <li><a href="#jak-to-dziala">Jak działa</a></li>
-                <li><a href="#realizacje">Realizacje</a></li>
+                <li><a href="blog.html#blog-jak-to-dziala">Jak działa</a></li>
+                <li><a href="blog.html#blog-realizacje">Realizacje</a></li>
                 <li><a href="#kalkulator">Kalkulator</a></li>
                 <li class="idea-wrapper">
                     <button type="button" id="btn-idea" class="btn-idea">💡 Zgłoś pomysł</button>
@@ -201,6 +201,7 @@
     <!-- HERO -->
 
     <div class="hero">
+        <canvas id="hero-sky-canvas" class="hero-sky-canvas"></canvas>
         <div id="hero-particles"></div>
         <div class="hero-rays"></div>
         <div class="hero-rays-2"></div>
@@ -381,6 +382,7 @@
                     <div class="sw-forecast-header">
                         <div class="sw-forecast-title">Prognoza (14 dni)</div>
                         <div class="sw-controls">
+                            <button class="sw-toggle-btn" data-view="history">Ostatnie 24h</button>
                             <button class="sw-toggle-btn active" data-view="solar">Produkcja</button>
                             <button class="sw-toggle-btn" data-view="temp">Temperatura</button>
                         </div>
@@ -746,6 +748,34 @@
                                         <button type="button" class="orientation-btn active" data-orientation="vertical">Pionowy</button>
                                         <button type="button" class="orientation-btn" data-orientation="horizontal">Poziomy</button>
                                     </div>
+                                    <!-- Przycisk optymalizacji -->
+                                    <button type="button" id="btn-optimize-insulation" class="btn-auto" style="margin-bottom: 15px; background: rgba(22, 163, 74, 0.1); border-color: rgba(22, 163, 74, 0.3); color: #15803d; width: 100%;">
+                                        <i class="fa-solid fa-bolt-lightning"></i> Zoptymalizuj pod moją rodzinę
+                                    </button>
+                                    <!-- Wykres stygnięcia -->
+                                    <div class="cooling-graph-wrap" style="margin-top: 15px;">
+                                        <div style="font-size: 0.7rem; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; display: flex; justify-content: space-between;">
+                                            <span>Dobowy spadek temperatury (straty)</span>
+                                        </div>
+                                        <div class="field insulation-field" style="margin-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 8px;">
+                                            <label style="font-size: 0.65rem; margin-bottom: 4px;">Grubość izolacji: <span id="val-insulation" style="color: var(--sun); font-weight: 700;">10 cm (Dobra)</span></label>
+                                            <div class="range-wrapper insulation-range-wrapper">
+                                                <button type="button" class="range-btn" data-target="range-insulation" data-dir="-1" aria-label="Zmniejsz grubość izolacji">-</button>
+                                                <input type="range" id="range-insulation" min="0" max="5" value="2" step="1" style="height: 4px; cursor: pointer;">
+                                                <button type="button" class="range-btn" data-target="range-insulation" data-dir="1" aria-label="Zwiększ grubość izolacji">+</button>
+                                            </div>
+                                            <div class="insulation-levels" aria-hidden="true">
+                                                <span>0 cm</span>
+                                                <span>5 cm</span>
+                                                <span>10 cm</span>
+                                                <span>12 cm</span>
+                                                <span>15 cm</span>
+                                                <span>20 cm</span>
+                                            </div>
+                                            <p class="insulation-tip">Grubsza izolacja = wolniejsze stygnięcie i mniejsze straty energii.</p>
+                                        </div>
+                                        <canvas id="coolingChart" style="width: 100%; height: 80px;"></canvas>
+                                    </div>
                                     <p id="stratification-info" class="example-stratification"></p>
                                 </div>
                             </div>
@@ -898,77 +928,6 @@
         </div>
     </section>
 
-    <!-- HOW IT WORKS -->
-    <section id="jak-to-dziala">
-        <div class="section-inner fade-in-section">
-            <div class="section-head">
-                <div class="section-label" style="color: rgba(245,158,11,0.7)">Zasada działania</div>
-                <h2 class="section-title">Jak to działa?</h2>
-                <p class="section-sub">Cztery proste kroki od instalacji do darmowej ciepłej wody.</p>
-            </div>
-            <div class="steps-grid">
-                <div class="step-card">
-                    <div class="step-num">1</div>
-                    <h4>Panele PV na dachu</h4>
-                    <p>Od 4+ panele fotowoltaiczne montujemy na dachu lub na gruncie. Optymalnie skierowane na południe.</p>
-                </div>
-                <div class="step-card">
-                    <div class="step-num">2</div>
-                    <h4>Falownik MPPT</h4>
-                    <p>Specjalny falownik przetwarza prąd z paneli na parametry odpowiednie dla grzałki bojlera.</p>
-                </div>
-                <div class="step-card">
-                    <div class="step-num">3</div>
-                    <h4>Energia do grzałki</h4>
-                    <p>Prąd trafia bezpośrednio do grzałki elektrycznej w Twoim istniejącym bojlerze — bez zmian sprzętu.</p>
-                </div>
-                <div class="step-card">
-                    <div class="step-num">4</div>
-                    <h4>Darmowa ciepła woda</h4>
-                    <p>Codziennie od rana masz gorącą wodę — bezpłatnie, niezależnie od cen prądu w sieci.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- REALIZACJE -->
-    <section id="realizacje">
-        <div class="section-inner fade-in-section">
-            <div class="section-head">
-                <div class="section-label">Zobacz na żywo</div>
-                <h2 class="section-title">Realizacje i materiały wideo</h2>
-                <p class="section-sub">Poniżej pierwsze zdjęcia z montażu oraz krótki materiał wideo z YouTube Shorts.</p>
-            </div>
-
-            <div class="realizacje-grid">
-                <figure class="real-card">
-                    <img src="image/panele.jpg" alt="Panele fotowoltaiczne zamontowane do podgrzewania wody" loading="lazy" class="js-lightbox-item" data-caption="Panele PV po montażu">
-                    <figcaption>7 paneli fotowoltaicznych, każdy o mocy 450 W, dają razem 3150 W. Dolne panele zasilają grzałki w buforze (3 kW i 2 kW) - szczegóły opiszemy po dopracowaniu konstrukcji.</figcaption>
-                </figure>
-
-                <figure class="real-card">
-                    <img src="image/falownik.png" alt="Falownik MPPT w instalacji Słoneczny Bojler" loading="lazy" class="js-lightbox-item" data-caption="Falownik MPPT">
-                    <figcaption>Przetwornica napięcia GreenBoost 3000 zasila dwie grzałki: 3 kW i 2 kW.</figcaption>
-                </figure>
-
-                <div class="real-card video">
-                    <iframe
-                        src="https://www.youtube-nocookie.com/embed/K0tg7Okmp0A"
-                        title="Słoneczny Bojler - YouTube Shorts"
-                        loading="lazy"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        referrerpolicy="strict-origin-when-cross-origin"
-                        allowfullscreen></iframe>
-                    <div class="real-video-caption">
-                        Wideo: realizacja w formacie Shorts
-                        <a href="https://www.youtube.com/shorts/K0tg7Okmp0A" target="_blank" rel="noopener noreferrer">Otwórz na YouTube</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-  
     <!-- MAGAZYN ENERGII -->
     <!-- ─── START: NOWA SEKCJA MAGAZYN ENERGII ─── -->
     <section id="magazyn-energii" style="background: var(--white);">
@@ -1019,6 +978,7 @@
                             <label>Pora roku / tryb obliczeń</label>
                             <select id="me-sel-season">
                                 <option value="annual" selected>Cały rok (średnia roczna)</option>
+                                <option value="live" style="color:var(--sun); font-weight:bold;">Dzisiaj (Dane na żywo ☀️)</option>
                                 <option value="summer">Lato (czerwiec–sierpień)</option>
                                 <option value="spring">Wiosna / Jesień</option>
                                 <option value="winter">Zima (grudzień–luty)</option>
@@ -1598,3 +1558,4 @@
     <script src="portfolio-logos.js" defer></script>
 </body>
 </html>
+

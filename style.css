@@ -107,6 +107,17 @@ nav.nav-open .hamburger span:nth-child(3) { transform: translateY(-10.5px) rotat
     padding: 120px 24px 80px;
     transition: background 1.5s ease;
 }
+.hero-sky-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 1.8s ease;
+    z-index: 0;
+}
+.hero.is-night .hero-sky-canvas { opacity: 1; }
 .hero-rays {
     position: absolute; top: -20%; right: -10%;
     width: 700px; height: 700px;
@@ -126,6 +137,7 @@ nav.nav-open .hamburger span:nth-child(3) { transform: translateY(-10.5px) rotat
 .hero.is-night .hero-rays-2 {
     background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 60%);
 }
+.hero.is-night #hero-particles { display: none; }
 
 @keyframes pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
@@ -456,7 +468,7 @@ nav.nav-open .hamburger span:nth-child(3) { transform: translateY(-10.5px) rotat
     transition: opacity 2s ease-in-out;
 }
 /* Pokaż gwiazdy w nocy */
-.hero.is-night .hero-stars { opacity: 1; }
+.hero.is-night .hero-stars { opacity: 0; }
 /* Przyciemnij tło Hero w nocy */
 .hero.is-night {
     background: linear-gradient(to right, #0f172a, #1e293b);
@@ -2162,6 +2174,13 @@ footer {
 .sw-day-name { font-size: 0.62rem; color: rgba(255,255,255,0.5); text-transform: uppercase; line-height: 1; }
 .sw-day-date { font-size: 0.55rem; color: rgba(255,255,255,0.25); line-height: 1; }
 .sw-day.today .sw-day-name { color: var(--sun); font-weight: 700; }
+.sw-day.today .sw-bar {
+    animation: sw-bar-pulse 2s infinite ease-in-out;
+}
+@keyframes sw-bar-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
 .sw-wmo { font-size: 0.9rem; line-height: 1; }
 .sw-rain { font-size: 0.55rem; color: #60a5fa; font-weight: 600; line-height: 1; }
 /* Dni >10 — lekko wygaszone (niższe zaufanie do prognozy) */
@@ -2608,6 +2627,40 @@ footer {
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     font-weight: 700;
 }
+.insulation-field .insulation-range-wrapper {
+    margin-bottom: 8px;
+}
+.insulation-field .insulation-range-wrapper .range-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 1rem;
+}
+.insulation-levels {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 0.62rem;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.insulation-levels span { text-align: center; }
+.insulation-levels span:first-child { text-align: left; }
+.insulation-levels span:last-child { text-align: right; }
+.insulation-tip {
+    margin-top: 8px;
+    margin-bottom: 0;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    line-height: 1.4;
+}
+@media (max-width: 600px) {
+    .insulation-field .insulation-range-wrapper input[type="range"]::-webkit-slider-thumb {
+        width: 26px;
+        height: 26px;
+    }
+}
 
 .stratification-wrapper {
     display: grid;
@@ -2734,6 +2787,20 @@ footer {
     margin-bottom: 24px;
     line-height: 1.5;
     animation: swFadeIn 0.4s ease-out;
+}
+
+.cooling-graph-wrap {
+    background: rgba(0,0,0,0.02);
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(0,0,0,0.03);
+    min-height: 110px;
+}
+
+/* Poprawka kompatybilności appearance */
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
 }
 
 /* ── BLOG STYLES ──────────────────────────────────── */

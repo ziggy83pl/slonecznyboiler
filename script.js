@@ -1368,6 +1368,8 @@ const PEAK_POWER = 3150;     // moc szczytowa Twoich paneli w Watach (7 x 450W)
 let solarState   = null;     // Przechowywanie danych do interakcji
 let currentForecastView = 'solar'; // 'solar' lub 'temp'
 let solarTimeout;            // Timer do automatycznego od?wie?ania
+let solarClockTimer = null;  // Lekki ticker do aktualizacji po aktualnym czasie
+const SOLAR_WIDGET_TIMEZONE = 'Europe/Warsaw';
 
 function getSeason(date) {
     const m = date.getMonth() + 1, d = date.getDate();
@@ -1395,7 +1397,8 @@ function formatTime(input) {
 
     // 1. Je?li to liczba (timestamp z hovera na wykresie)
     if (typeof input === 'number') {
-        return new Date(input).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+        const ts = input < 1e12 ? input * 1000 : input;
+        return new Date(ts).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
     }
 
     // 2. Je?li to string ISO z API (np. "2026-02-16T07:15")
@@ -1405,6 +1408,111 @@ function formatTime(input) {
         return parts[1].substring(0, 5);
     }
     return '--:--';
+}
+
+function parseSolarTime(input, timeZone = SOLAR_WIDGET_TIMEZONE) {
+    if (input instanceof Date) return input.getTime();
+    if (typeof input === 'number' && Number.isFinite(input)) return input < 1e12 ? input * 1000 : input;
+    if (!input) return NaN;
+
+    const raw = String(input).trim();
+    if (!raw) return NaN;
+    if (/[zZ]$/.test(raw) || /[+-]\d\d:\d\d$/.test(raw)) {
+        return new Date(raw).getTime();
+    }
+
+    const [datePart, timePart = '00:00:00'] = raw.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hour = '0', minute = '0', second = '0'] = timePart.split(':');
+    if (![year, month, day].every(Number.isFinite)) return NaN;
+
+    const wallClockUtcGuess = Date.UTC(year, month - 1, day, Number(hour), Number(minute), Number(second));
+
+    try {
+        const getOffsetMs = (ts) => {
+            const parts = new Intl.DateTimeFormat('en-US', {
+                timeZone,
+                timeZoneName: 'shortOffset',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour12: false
+            }).formatToParts(new Date(ts));
+            const tzName = parts.find((p) => p.type === 'timeZoneName')?.value || 'GMT+0';
+            const match = tzName.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/);
+            if (!match) return 0;
+            const sign = match[1] === '+' ? 1 : -1;
+            return sign * ((Number(match[2]) * 60) + Number(match[3] || 0)) * 60 * 1000;
+        };
+
+        let ts = wallClockUtcGuess - getOffsetMs(wallClockUtcGuess);
+        ts = wallClockUtcGuess - getOffsetMs(ts);
+        return ts;
+    } catch (e) {
+        // Awaryjnie: przynajmniej nie blokujemy całego widgetu.
+        return new Date(raw).getTime();
+    }
+}
+
+function getLocalDateKey(date, timeZone = SOLAR_WIDGET_TIMEZONE) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).formatToParts(date);
+    const y = parts.find((p) => p.type === 'year')?.value;
+    const m = parts.find((p) => p.type === 'month')?.value;
+    const d = parts.find((p) => p.type === 'day')?.value;
+    return y && m && d ? `${y}-${m}-${d}` : '';
+}
+
+function getTodayDailyIndex(daily, now = new Date(), timeZone = SOLAR_WIDGET_TIMEZONE) {
+    const times = Array.isArray(daily?.time) ? daily.time : [];
+    if (!times.length) return 0;
+
+    const todayKey = getLocalDateKey(now, timeZone);
+    for (let i = 0; i < times.length; i++) {
+        const raw = times[i];
+        const ts = typeof raw === 'number' ? (raw < 1e12 ? raw * 1000 : raw) : new Date(raw).getTime();
+        if (!Number.isFinite(ts)) continue;
+        if (getLocalDateKey(new Date(ts), timeZone) === todayKey) return i;
+    }
+
+    return Math.min(1, times.length - 1);
+}
+
+function updateSolarDailyValue() {
+    if (!solarState) return;
+
+    const { sunriseTs, sunsetTs, clouds } = solarState;
+    const nowTs = Date.now();
+    if (![sunriseTs, sunsetTs].every(Number.isFinite) || sunsetTs <= sunriseTs) return 0;
+
+    const dayLengthHours = (sunsetTs - sunriseTs) / (1000 * 60 * 60);
+    let nowRatio = (nowTs - sunriseTs) / (sunsetTs - sunriseTs);
+    nowRatio = Math.max(0, Math.min(1, nowRatio));
+
+    const cloudFactor = 1 - (Number(clouds) / 100) * 0.85;
+    const integralFactor = (1 - Math.cos(Math.PI * nowRatio)) / Math.PI;
+    const producedWh = PEAK_POWER * cloudFactor * 0.82 * dayLengthHours * integralFactor;
+    const producedKWh = producedWh / 1000;
+    const dailyValEl = document.getElementById('sw-daily-val');
+    if (dailyValEl) dailyValEl.textContent = producedKWh.toFixed(2);
+    solarState.currentProduction = producedKWh;
+    return producedKWh;
+}
+
+function startSolarClock() {
+    clearInterval(solarClockTimer);
+    solarClockTimer = setInterval(() => {
+        if (!solarState) return;
+        updateSolarDailyValue();
+        drawSolarCurve();
+    }, 30000);
 }
 
 // SOLAR WIDGET: Gwiazdki nocne
@@ -2030,7 +2138,8 @@ function updateLivePower(targetW, isDay) {
 function drawSolarCurve(hoverX = null) {
     const canvas = document.getElementById('solarCanvas');
     if (!canvas || !solarState) return;
-    const { sunriseTs, sunsetTs, nowTs, clouds } = solarState;
+    const { sunriseTs, sunsetTs, clouds } = solarState;
+    const nowTs = Date.now();
 
     const wrap   = canvas.parentElement;
     canvas.width  = wrap.clientWidth  || 800;
@@ -2544,6 +2653,7 @@ async function loadSolarData() {
             `&current=shortwave_radiation,cloud_cover,is_day,temperature_2m,weather_code,relative_humidity_2m` +
             `&hourly=shortwave_radiation` +
             `&daily=shortwave_radiation_sum,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,weather_code` +
+            `&timeformat=unixtime` +
             `&timezone=Europe/Warsaw` +
             `&forecast_days=14&past_days=1`;
 
@@ -2559,16 +2669,21 @@ async function loadSolarData() {
         console.log('☀️ Dane z API:', data.current);
 
 // Wschd / Zachd
-        const sunriseIso = data.daily?.sunrise?.[0];
-        const sunsetIso  = data.daily?.sunset?.[0];
+        const dailyIndex = getTodayDailyIndex(data.daily, now, SOLAR_WIDGET_TIMEZONE);
+        const sunriseIso = data.daily?.sunrise?.[dailyIndex];
+        const sunsetIso  = data.daily?.sunset?.[dailyIndex];
+        const dailyTime   = data.daily?.time?.[dailyIndex];
 
         if (!sunriseIso || !sunsetIso) {
             throw new Error('Brak danych sunrise/sunset w odpowiedzi API');
         }
 
 // WANE: Open-Meteo zwraca czas lokalny uywamy formatTime bez konwersji
-        const sunriseTs = new Date(sunriseIso).getTime();
-        const sunsetTs  = new Date(sunsetIso).getTime();
+        const sunriseTs = parseSolarTime(sunriseIso);
+        const sunsetTs  = parseSolarTime(sunsetIso);
+        if (!Number.isFinite(sunriseTs) || !Number.isFinite(sunsetTs)) {
+            throw new Error('Nie udało się przeliczyć sunrise/sunset na czas lokalny');
+        }
         const nowTs     = now.getTime();
         
         const elSunrise = document.getElementById('sw-sunrise');
@@ -2576,7 +2691,7 @@ async function loadSolarData() {
         if (elSunrise) elSunrise.textContent = formatTime(sunriseIso);
         if (elSunset)  elSunset.textContent  = formatTime(sunsetIso);
 
-        console.log('☀️ Wschód:', formatTime(sunriseIso), '| Zachód:', formatTime(sunsetIso));
+        console.log('☀️ Wschód:', formatTime(sunriseIso), '| Zachód:', formatTime(sunsetIso), '| Indeks dnia:', dailyIndex, '| Data:', dailyTime);
         
 // Dane meteo
         const radiation = Math.round(data.current?.shortwave_radiation ?? 0);
@@ -2683,22 +2798,20 @@ async function loadSolarData() {
         }
 
 // Produkcja dzienna (cakowanie)
-        const dayLengthHours = (sunsetTs - sunriseTs) / (1000 * 60 * 60);
-        let nowRatio = (nowTs - sunriseTs) / (sunsetTs - sunriseTs);
-        nowRatio = Math.max(0, Math.min(1, nowRatio));
-        
-        const cloudFactor = 1 - (clouds / 100) * 0.85;
-        const integralFactor = (1 - Math.cos(Math.PI * nowRatio)) / Math.PI;
-        const producedWh = PEAK_POWER * cloudFactor * efficiency * dayLengthHours * integralFactor;
-        const producedKWh = (producedWh / 1000).toFixed(2);
-        
-        const dailyValEl = document.getElementById('sw-daily-val');
-        if (dailyValEl) dailyValEl.textContent = producedKWh;
+        solarState = {
+            sunriseTs, sunsetTs,
+            radiation, clouds,
+            daily: data.daily,
+            hourly: data.hourly,
+            currentProduction: 0
+        };
+
+        const producedKWh = updateSolarDailyValue();
 
         // Od?wie? licznik zarobku po za?adowaniu danych dziennych
         if (typeof updateEarnedCounter === 'function') updateEarnedCounter();
 
-        console.log(`☀️ Produkcja dzi?: ${producedKWh} kWh (nowRatio: ${nowRatio.toFixed(2)})`);
+        console.log(`☀️ Produkcja dzi?: ${producedKWh.toFixed(2)} kWh`);
 
 // Badges (Weather Code)
         const wCode = data.current?.weather_code ?? 0;
@@ -2750,16 +2863,9 @@ async function loadSolarData() {
             canvas.classList.remove('sw-animate-in');
             void canvas.offsetWidth; // trigger reflow
             canvas.classList.add('sw-animate-in');
-            
-            solarState = {
-                sunriseTs, sunsetTs, nowTs,
-                radiation, clouds,
-                daily: data.daily,
-                hourly: data.hourly,
-                currentProduction: producedKWh
-            };
 
             drawSolarCurve(); 
+            startSolarClock();
             window.dispatchEvent(new CustomEvent('solarDataLoaded'));
         } else {
             console.warn('☀️ Nie znaleziono elementu #solarCanvas!');
@@ -2846,10 +2952,8 @@ if (solarCanvasEl) {
     loadSolarData();
 
     window.addEventListener('resize', () => {
-        if (solarCanvasEl.style.display !== 'none') {
-            const sunriseEl = document.getElementById('sw-sunrise');
-            const sunriseText = sunriseEl ? sunriseEl.textContent : '--:--';
-            if (sunriseText !== '--:--') loadSolarData();
+        if (solarCanvasEl.style.display !== 'none' && solarState) {
+            drawSolarCurve();
         }
     });
 

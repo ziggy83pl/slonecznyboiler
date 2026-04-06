@@ -1283,7 +1283,6 @@ if (installBtn) {
 window.addEventListener('appinstalled', () => {
     if (installBtn) installBtn.classList.remove('visible');
     deferredPrompt = null;
-    console.log('Aplikacja została zainstalowana');
 });
 
 // Rejestracja Service Worker
@@ -2527,7 +2526,6 @@ function getMoonData(date) {
 
 const DEBUG_FORCE_NIGHT = new URLSearchParams(window.location.search).get('night') === '1';
 if (DEBUG_FORCE_NIGHT) {
-    console.log('🌙 Debug: wymuszony tryb nocny przez parametr ?night=1');
 }
 
 function applyMoonVisuals(sunWrapper, moon) {
@@ -2650,7 +2648,6 @@ setInterval(function() {
 
 async function loadSolarData() {
     clearTimeout(solarTimeout);
-    console.log('☀️ loadSolarData() uruchomiona o:', new Date().toLocaleTimeString());
 
     const refreshBtn = document.getElementById('sw-refresh-btn');
     if(refreshBtn) refreshBtn.classList.add('loading');
@@ -2677,7 +2674,6 @@ async function loadSolarData() {
             `&timezone=Europe/Warsaw` +
             `&forecast_days=14&past_days=1`;
 
-        console.log('☀️ Fetch URL:', url);
 
         const response = await fetchWithTimeout(url, 8000);
         
@@ -2686,7 +2682,6 @@ async function loadSolarData() {
         }
 
         const data = await response.json();
-        console.log('☀️ Dane z API:', data.current);
 
 // Wschd / Zachd
         const dailyIndex = getTodayDailyIndex(data.daily, now, SOLAR_WIDGET_TIMEZONE);
@@ -2711,7 +2706,6 @@ async function loadSolarData() {
         if (elSunrise) elSunrise.textContent = formatTime(sunriseIso);
         if (elSunset)  elSunset.textContent  = formatTime(sunsetIso);
 
-        console.log('☀️ Wschód:', formatTime(sunriseIso), '| Zachód:', formatTime(sunsetIso), '| Indeks dnia:', dailyIndex, '| Data:', dailyTime);
         
 // Dane meteo
         const radiation = Math.round(data.current?.shortwave_radiation ?? 0);
@@ -2748,7 +2742,6 @@ async function loadSolarData() {
 // OBLICZANIE FAZY KSIYCA (Lokalnie)
                 const moon = getMoonData(new Date());
                 applyMoonVisuals(sunWrapper, moon);
-                console.log(`🌙 Faza księżyca: idx=${moon.phaseIndex}, illum=${moon.illumination.toFixed(3)}, waxing=${moon.waxing}`);
             }
         }
         if (heroSection) {
@@ -2797,7 +2790,6 @@ async function loadSolarData() {
             themeMeta.content = visualIsDay ? '#F7F3EC' : '#0f172a';
         }
 
-        console.log(`☀️ Promieniowanie: ${radiation} W/m² | Zachmurzenie: ${clouds}% | Wilgotność: ${humidity}%`);
 
         const elRadiation = document.getElementById('sw-radiation');
         const elClouds    = document.getElementById('sw-clouds');
@@ -2831,7 +2823,6 @@ async function loadSolarData() {
         // Od?wie? licznik zarobku po za?adowaniu danych dziennych
         if (typeof updateEarnedCounter === 'function') updateEarnedCounter();
 
-        console.log(`☀️ Produkcja dzi?: ${producedKWh.toFixed(2)} kWh`);
 
 // Badges (Weather Code)
         const wCode = data.current?.weather_code ?? 0;

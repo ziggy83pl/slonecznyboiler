@@ -2353,14 +2353,34 @@ function renderForecast(view) {
             return;
         }
         const localNow = new Date();
-        const year = localNow.getFullYear();
-        const month = String(localNow.getMonth() + 1).padStart(2, '0');
-        const day = String(localNow.getDate()).padStart(2, '0');
-        const hour = String(localNow.getHours()).padStart(2, '0');
-        const currentLocalIso = `${year}-${month}-${day}T${hour}:00`;
+        // API zwraca Unix timestamps (sekundy) z powodu &timeformat=unixtime
+        // Szukamy godziny bieżącej przez porównanie Unix ts
+        const nowHourTs = Math.floor(localNow.getTime() / 1000 / 3600) * 3600; // zaokrąglenie do godziny
+        const isUnix = typeof hourly.time[0] === 'number';
 
-        let currentIndex = hourly.time.findIndex(t => t === currentLocalIso);
-        if (currentIndex === -1) currentIndex = hourly.time.length - 1;
+        let currentIndex;
+        if (isUnix) {
+            currentIndex = hourly.time.findIndex(t => t >= nowHourTs);
+            if (currentIndex === -1) currentIndex = hourly.time.length - 1;
+            // cofnij jeśli wskazuje na przyszłość
+            if (currentIndex > 0 && hourly.time[currentIndex] > nowHourTs) currentIndex--;
+        } else {
+            const year = localNow.getFullYear();
+            const month = String(localNow.getMonth() + 1).padStart(2, '0');
+            const day = String(localNow.getDate()).padStart(2, '0');
+            const hour = String(localNow.getHours()).padStart(2, '0');
+            const currentLocalIso = `${year}-${month}-${day}T${hour}:00`;
+            currentIndex = hourly.time.findIndex(t => t === currentLocalIso);
+            if (currentIndex === -1) currentIndex = hourly.time.length - 1;
+        }
+
+        // helper: Unix ts lub ISO string → "HH:MM"
+        function tsToHourStr(t) {
+            if (typeof t === 'number') {
+                return new Date(t * 1000).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' });
+            }
+            return t.split('T')[1].substring(0, 5);
+        }
 
         const startIndex = Math.max(0, currentIndex - 23);
         const dataSlice = hourly.shortwave_radiation.slice(startIndex, currentIndex + 1);
@@ -2373,7 +2393,7 @@ function renderForecast(view) {
         const totalSaved = total24h * currentPrice;
         const maxHourVal = Math.max(...historyKWh);
         const maxHourIdx = historyKWh.indexOf(maxHourVal);
-        const maxHourStr = timeSlice[maxHourIdx].split('T')[1].substring(0, 5);
+        const maxHourStr = tsToHourStr(timeSlice[maxHourIdx]);
 
         if (titleEl) {
             titleEl.innerHTML = `Ostatnie 24h <span style="color:#60a5fa; margin-left:8px; text-transform:none; font-weight:600; font-size:0.8rem;">(Suma: ${total24h.toFixed(2)} kWh ≈ ${totalSaved.toFixed(2)} zł)</span>` +
@@ -2384,7 +2404,7 @@ function renderForecast(view) {
 
         timeSlice.forEach((iso, i) => {
             const val = historyKWh[i];
-            const hourStr = iso.split('T')[1].substring(0, 5);
+            const hourStr = tsToHourStr(iso);
             const heightPct = Math.max((val / maxKWh) * 100, 2);
             const hourlySaved = val * currentPrice;
             const tooltip = `Godzina: ${hourStr}\nProdukcja: ${val.toFixed(2)} kWh\nZysk: ${hourlySaved.toFixed(2)} zł`;

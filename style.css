@@ -3137,3 +3137,45 @@ input[type="range"]::-webkit-slider-thumb {
     .me-guide-num { font-size: 1.2rem; }
     .me-inv-cards, .me-pv-cards { grid-template-columns: 1fr 1fr; }
 }
+
+/* ================================================
+   WYKRES PRODUKCJI DOBOWEJ (sw-daychart)
+   ================================================ */
+.sw-daychart-wrap {
+    margin: 0 0 8px 0;
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(96, 165, 250, 0.15);
+    border-radius: 14px;
+    padding: 14px 14px 10px;
+}
+.sw-daychart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.sw-daychart-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.75);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+.sw-daychart-total {
+    font-size: 0.78rem;
+    color: #60a5fa;
+    font-weight: 600;
+}
+.sw-daychart-weather {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    padding: 0 4px;
+    min-height: 22px;
+}
+.sw-daychart-weather span {
+    font-size: 0.85rem;
+    opacity: 0.7;
+    flex: 1;
+    text-align: center;
+}

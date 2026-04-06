@@ -2333,6 +2333,184 @@ function wmoIcon(code) {
     return                               { icon: '⛈️',  label: 'Burza z gradem' };
 }
 
+// ============================================================
+//  WYKRES PRODUKCJI DOBOWEJ – wykres godzinowy jak w SolarEdge
+// ============================================================
+let dayChartInstance = null;
+
+function renderDayChart() {
+    const wrap = document.getElementById('sw-daychart-wrap');
+    const canvas = document.getElementById('sw-daychart');
+    if (!wrap || !canvas || !solarState || !solarState.hourly) return;
+
+    const hourly = solarState.hourly;
+    const now = new Date();
+    const efficiency = 0.82;
+    const systemKWp = PEAK_POWER / 1000;
+
+    // Buduj tablicę 24h dla dzisiejszego dnia (0:00 – 23:00)
+    const todayKey = now.toLocaleDateString('sv-SE', { timeZone: 'Europe/Warsaw' }); // "YYYY-MM-DD"
+    const labels = [];
+    const dataKW = [];
+    const weatherIcons = [];
+
+    // Wyciągnij hourly dane tylko dla dzisiaj
+    for (let i = 0; i < hourly.time.length; i++) {
+        const ts = hourly.time[i]; // Unix timestamp (s)
+        const d = new Date(ts * 1000);
+        const dayKey = d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Warsaw' });
+        if (dayKey !== todayKey) continue;
+
+        const hh = d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' });
+        labels.push(hh);
+
+        const rad = hourly.shortwave_radiation[i] ?? 0;
+        const kw = parseFloat(((rad / 1000) * systemKWp * efficiency).toFixed(3));
+        dataKW.push(kw);
+    }
+
+    if (labels.length === 0) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+
+    // Ikony pogody co 4 godziny (na górze wykresu)
+    const daily = solarState.daily;
+    const wCode = daily?.weather_code?.[0] ?? 0;
+    const wmoIcon = (code) => {
+        if (code === 0) return '☀️';
+        if (code <= 2) return '🌤️';
+        if (code === 3) return '☁️';
+        if (code <= 48) return '🌫️';
+        if (code <= 57) return '🌦️';
+        if (code <= 67) return '🌧️';
+        if (code <= 77) return '❄️';
+        if (code <= 82) return '🌧️';
+        return '⛈️';
+    };
+    const weatherEl = document.getElementById('sw-daychart-weather');
+    if (weatherEl) {
+        // Pokaż ikonę co ~4 godziny (6 pozycji)
+        const step = Math.floor(labels.length / 6) || 1;
+        let html = '';
+        for (let i = 0; i < labels.length; i += step) {
+            html += `<span title="${labels[i]}">${wmoIcon(wCode)}</span>`;
+        }
+        weatherEl.innerHTML = html;
+    }
+
+    // Całkowita suma dzienna kWh (trapezy)
+    const totalKWh = dataKW.reduce((s, v) => s + v, 0).toFixed(2);
+    const price = (() => { const el = document.getElementById('range-price'); return el ? parseFloat(el.value) : 1.10; })();
+    const totalEl = document.getElementById('sw-daychart-total');
+    if (totalEl) totalEl.textContent = `Suma: ${totalKWh} kWh ≈ ${(totalKWh * price).toFixed(2)} zł`;
+
+    // Linia "teraz" — aktualny indeks godziny
+    const nowHour = now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' });
+    const nowIdx = labels.indexOf(nowHour);
+
+    // Gradient fill pod wykresem
+    const ctx = canvas.getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 160);
+    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.55)');
+    gradient.addColorStop(1, 'rgba(59, 130, 246, 0.03)');
+
+    // Zniszcz poprzedni wykres
+    if (dayChartInstance) { dayChartInstance.destroy(); dayChartInstance = null; }
+
+    dayChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Produkcja (kW)',
+                data: dataKW,
+                fill: true,
+                backgroundColor: gradient,
+                borderColor: 'rgba(96, 165, 250, 0.9)',
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                pointHoverBackgroundColor: '#60a5fa',
+                tension: 0.35,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15,23,42,0.92)',
+                    titleColor: 'rgba(255,255,255,0.6)',
+                    bodyColor: '#60a5fa',
+                    borderColor: 'rgba(96,165,250,0.3)',
+                    borderWidth: 1,
+                    padding: 10,
+                    callbacks: {
+                        title: (items) => `Godzina: ${items[0].label}`,
+                        label: (item) => {
+                            const kw = item.raw;
+                            const kwh = kw.toFixed(2);
+                            const zl = (kw * price).toFixed(2);
+                            return [`Produkcja: ${kwh} kW`, `Zysk: ≈ ${zl} zł`];
+                        }
+                    }
+                },
+                // Pionowa linia "teraz"
+                ...(nowIdx >= 0 ? {
+                    annotation: undefined
+                } : {})
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: {
+                        color: 'rgba(255,255,255,0.4)',
+                        font: { size: 10 },
+                        maxTicksLimit: 8,
+                        maxRotation: 0,
+                    },
+                    border: { color: 'rgba(255,255,255,0.1)' }
+                },
+                y: {
+                    min: 0,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: {
+                        color: 'rgba(255,255,255,0.4)',
+                        font: { size: 10 },
+                        callback: v => v.toFixed(1) + ' kW',
+                        maxTicksLimit: 5,
+                    },
+                    border: { color: 'rgba(255,255,255,0.1)' }
+                }
+            }
+        },
+        plugins: [{
+            // Pionowa linia "TERAZ"
+            id: 'nowLine',
+            afterDraw(chart) {
+                if (nowIdx < 0) return;
+                const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+                const xPos = x.getPixelForIndex(nowIdx);
+                ctx.save();
+                ctx.beginPath();
+                ctx.setLineDash([4, 3]);
+                ctx.strokeStyle = 'rgba(245, 158, 11, 0.8)';
+                ctx.lineWidth = 1.5;
+                ctx.moveTo(xPos, top);
+                ctx.lineTo(xPos, bottom);
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(245, 158, 11, 0.9)';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('teraz', xPos, top - 4);
+                ctx.restore();
+            }
+        }]
+    });
+}
+
+
 function renderForecast(view) {
     const container = document.getElementById('sw-forecast');
     if (!container || !solarState || !solarState.daily) return;
@@ -2641,10 +2819,22 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Od?wie?aj co 60 sekund (aktualizacja "dzi?" z API)
-setInterval(function() {
+// Odświeżaj co 60 sekund (aktualizacja licznika zarobku)
+let earnedCounterInterval = setInterval(function() {
     if (typeof updateEarnedCounter === 'function') updateEarnedCounter();
 }, 60000);
+
+// Zatrzymaj gdy karta niewidoczna (oszczędność CPU)
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        clearInterval(earnedCounterInterval);
+        earnedCounterInterval = null;
+    } else if (!earnedCounterInterval) {
+        earnedCounterInterval = setInterval(function() {
+            if (typeof updateEarnedCounter === 'function') updateEarnedCounter();
+        }, 60000);
+    }
+});
 
 async function loadSolarData() {
     clearTimeout(solarTimeout);
@@ -2664,7 +2854,28 @@ async function loadSolarData() {
         loadingEl.innerHTML = '<div class="sw-spinner"></div> Pobieranie danych...';
     }
 
+    // --- CACHE sessionStorage (30 min) ---
+    const CACHE_KEY = 'solarData_cache';
+    const CACHE_TTL = 30 * 60 * 1000; // 30 minut
+    const isManualRefresh = refreshBtn && refreshBtn.classList.contains('loading') && document.activeElement === refreshBtn;
+
     try {
+        // Sprawdź cache (pomijaj przy ręcznym odświeżeniu przyciskiem)
+        if (!isManualRefresh) {
+            try {
+                const cached = sessionStorage.getItem(CACHE_KEY);
+                if (cached) {
+                    const { ts, data: cachedData } = JSON.parse(cached);
+                    if (Date.now() - ts < CACHE_TTL) {
+                        if (loadingEl) loadingEl.style.display = 'none';
+                        if (refreshBtn) refreshBtn.classList.remove('loading');
+                        processSolarData(cachedData, now);
+                        return;
+                    }
+                }
+            } catch(_) {}
+        }
+
         const url = `https://api.open-meteo.com/v1/forecast` +
             `?latitude=${LAT}&longitude=${LNG}` +
             `&current=shortwave_radiation,cloud_cover,is_day,temperature_2m,weather_code,relative_humidity_2m` +
@@ -2674,14 +2885,16 @@ async function loadSolarData() {
             `&timezone=Europe/Warsaw` +
             `&forecast_days=14&past_days=1`;
 
-
         const response = await fetchWithTimeout(url, 8000);
-        
+
         if (!response.ok) {
             throw new Error(`API HTTP ${response.status}: ${response.statusText}`);
         }
 
         const data = await response.json();
+
+        // Zapisz do cache
+        try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch(_) {}
 
 // Wschd / Zachd
         const dailyIndex = getTodayDailyIndex(data.daily, now, SOLAR_WIDGET_TIMEZONE);
@@ -2893,8 +3106,11 @@ async function loadSolarData() {
         if (typeof renderForecast === 'function') {
             renderForecast(currentForecastView);
         }
+        if (typeof renderDayChart === 'function') {
+            renderDayChart();
+        }
 
-        // Auto-od?wie?anie co 10 min
+        // Auto-odswiezanie co 10 min
         solarTimeout = setTimeout(loadSolarData, 10 * 60 * 1000);
 
     } catch (err) {

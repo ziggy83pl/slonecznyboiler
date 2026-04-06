@@ -2702,9 +2702,11 @@ function getMoonData(date) {
     return { phase, age, illumination, waxing, phaseIndex };
 }
 
-const DEBUG_FORCE_NIGHT = new URLSearchParams(window.location.search).get('night') === '1';
-if (DEBUG_FORCE_NIGHT) {
-}
+// Tryb nocny tylko dla localhost/127.0.0.1 (bezpieczny debug)
+const DEBUG_FORCE_NIGHT = (
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+    new URLSearchParams(window.location.search).get('night') === '1'
+);
 
 function applyMoonVisuals(sunWrapper, moon) {
     if (!sunWrapper || !moon) return;

@@ -1385,8 +1385,31 @@ function getSeason(date) {
 function fetchWithTimeout(url, timeoutMs = 8000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    return fetch(url, { signal: controller.signal })
+    return fetch(url, {
+        signal: controller.signal,
+        mode: 'cors',
+        cache: 'no-store',
+        credentials: 'omit',
+        redirect: 'follow',
+        referrerPolicy: 'no-referrer'
+    })
         .finally(() => clearTimeout(timer));
+}
+
+function setSolarApiDebug(message, tone = 'idle') {
+    const el = document.getElementById('sw-api-debug');
+    if (!el) return;
+
+    const tones = {
+        idle: 'rgba(255,255,255,0.55)',
+        info: 'rgba(125,211,252,0.9)',
+        success: '#86efac',
+        warning: '#fbbf24',
+        error: '#fca5a5'
+    };
+
+    el.style.color = tones[tone] || tones.idle;
+    el.textContent = message;
 }
 
 // WANA POPRAWKA: formatTime
@@ -3085,6 +3108,7 @@ async function loadSolarData() {
 
     const refreshBtn = document.getElementById('sw-refresh-btn');
     if(refreshBtn) refreshBtn.classList.add('loading');
+    setSolarApiDebug('API: łączenie...', 'info');
 
     const now = new Date();
     const season = getSeason(now);
@@ -3111,10 +3135,12 @@ async function loadSolarData() {
         const response = await fetchWithTimeout(url, 8000);
 
         if (!response.ok) {
+            setSolarApiDebug(`API: HTTP ${response.status} ${response.statusText}`, 'warning');
             throw new Error(`API HTTP ${response.status}: ${response.statusText}`);
         }
 
         const data = await response.json();
+        setSolarApiDebug(`API: OK (${response.status}) • źródło live`, 'success');
 
 
 // Wschd / Zachd
@@ -3340,9 +3366,21 @@ async function loadSolarData() {
     } catch (err) {
         // Rozróżniamy timeout od innych błędów
         const isTimeout = err.name === 'AbortError';
+        const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+        const errName = err?.name || 'Error';
         const msg = isTimeout
             ? '⏱ Timeout — serwer nie odpowiedział w 8 s'
             : `⚠️ ${err.message}`;
+
+        if (isTimeout) {
+            setSolarApiDebug('API: timeout po 8 s', 'error');
+        } else if (isOffline) {
+            setSolarApiDebug('API: brak internetu / offline', 'error');
+        } else if (errName === 'TypeError' && /fetch/i.test(String(err.message || ''))) {
+            setSolarApiDebug('API: fetch error (CORS / blokada przeglądarki)', 'error');
+        } else {
+            setSolarApiDebug(`API: błąd (${errName})`, 'error');
+        }
 
         console.error('☀️ Solar widget błąd:', err);
 

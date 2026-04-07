@@ -2856,28 +2856,7 @@ async function loadSolarData() {
         loadingEl.innerHTML = '<div class="sw-spinner"></div> Pobieranie danych...';
     }
 
-    // --- CACHE sessionStorage (30 min) ---
-    const CACHE_KEY = 'solarData_cache';
-    const CACHE_TTL = 30 * 60 * 1000; // 30 minut
-    const isManualRefresh = refreshBtn && refreshBtn.classList.contains('loading') && document.activeElement === refreshBtn;
-
     try {
-        // Sprawdź cache (pomijaj przy ręcznym odświeżeniu przyciskiem)
-        if (!isManualRefresh) {
-            try {
-                const cached = sessionStorage.getItem(CACHE_KEY);
-                if (cached) {
-                    const { ts, data: cachedData } = JSON.parse(cached);
-                    if (Date.now() - ts < CACHE_TTL) {
-                        if (loadingEl) loadingEl.style.display = 'none';
-                        if (refreshBtn) refreshBtn.classList.remove('loading');
-                        processSolarData(cachedData, now);
-                        return;
-                    }
-                }
-            } catch(_) {}
-        }
-
         const url = `https://api.open-meteo.com/v1/forecast` +
             `?latitude=${LAT}&longitude=${LNG}` +
             `&current=shortwave_radiation,cloud_cover,is_day,temperature_2m,weather_code,relative_humidity_2m` +
@@ -2895,8 +2874,6 @@ async function loadSolarData() {
 
         const data = await response.json();
 
-        // Zapisz do cache
-        try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch(_) {}
 
 // Wschd / Zachd
         const dailyIndex = getTodayDailyIndex(data.daily, now, SOLAR_WIDGET_TIMEZONE);

@@ -1,4 +1,4 @@
-﻿﻿// CALCULATOR
+﻿// CALCULATOR
 // 1. Definicja inputs (sprawdź czy ID zgadzają się z HTML!)
 const inputs = {
     volume:  { el: document.getElementById('range-volume'),  out: document.getElementById('val-volume'),  unit: ' L' },
@@ -31,6 +31,11 @@ let animationState = {
 const weatherState = {
     temperatureC: null,
     radiationWm2: null
+};
+
+const DEBUG = new URLSearchParams(window.location.search).get('debug') === '1';
+const debugLog = (...args) => {
+    if (DEBUG) console.log(...args);
 };
 
 const INSULATION_LEVELS = [
@@ -1283,6 +1288,7 @@ if (installBtn) {
 window.addEventListener('appinstalled', () => {
     if (installBtn) installBtn.classList.remove('visible');
     deferredPrompt = null;
+    debugLog('Aplikacja została zainstalowana');
 });
 
 // Rejestracja Service Worker
@@ -1385,31 +1391,8 @@ function getSeason(date) {
 function fetchWithTimeout(url, timeoutMs = 8000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    return fetch(url, {
-        signal: controller.signal,
-        mode: 'cors',
-        cache: 'no-store',
-        credentials: 'omit',
-        redirect: 'follow',
-        referrerPolicy: 'no-referrer'
-    })
+    return fetch(url, { signal: controller.signal })
         .finally(() => clearTimeout(timer));
-}
-
-function setSolarApiDebug(message, tone = 'idle') {
-    const el = document.getElementById('sw-api-debug');
-    if (!el) return;
-
-    const tones = {
-        idle: 'rgba(255,255,255,0.55)',
-        info: 'rgba(125,211,252,0.9)',
-        success: '#86efac',
-        warning: '#fbbf24',
-        error: '#fca5a5'
-    };
-
-    el.style.color = tones[tone] || tones.idle;
-    el.textContent = message;
 }
 
 // WANA POPRAWKA: formatTime
@@ -1505,227 +1488,6 @@ function getTodayDailyIndex(daily, now = new Date(), timeZone = SOLAR_WIDGET_TIM
     }
 
     return Math.min(1, times.length - 1);
-}
-
-function getDatePartsInTimeZone(date, timeZone = SOLAR_WIDGET_TIMEZONE) {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-        timeZone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-    }).formatToParts(date);
-    const year = parts.find((p) => p.type === 'year')?.value;
-    const month = parts.find((p) => p.type === 'month')?.value;
-    const day = parts.find((p) => p.type === 'day')?.value;
-    return year && month && day ? { year, month, day } : null;
-}
-
-function getTimeZoneOffsetMinutes(date, timeZone = SOLAR_WIDGET_TIMEZONE) {
-    try {
-        const parts = new Intl.DateTimeFormat('en-US', {
-            timeZone,
-            timeZoneName: 'shortOffset',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour12: false
-        }).formatToParts(date);
-        const tzName = parts.find((p) => p.type === 'timeZoneName')?.value || 'GMT+0';
-        const match = tzName.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/);
-        if (!match) return 0;
-        const sign = match[1] === '+' ? 1 : -1;
-        return sign * ((Number(match[2]) * 60) + Number(match[3] || 0));
-    } catch (e) {
-        return 0;
-    }
-}
-
-function getSolarTimesForDate(date, lat = LAT, lon = LNG, timeZone = SOLAR_WIDGET_TIMEZONE) {
-    const parts = getDatePartsInTimeZone(date, timeZone);
-    if (!parts) return null;
-
-    const year = Number(parts.year);
-    const month = Number(parts.month);
-    const day = Number(parts.day);
-    if (![year, month, day].every(Number.isFinite)) return null;
-
-    const localUtcMidnight = Date.UTC(year, month - 1, day, 0, 0, 0);
-    const dayOfYear = Math.floor((localUtcMidnight - Date.UTC(year, 0, 0)) / 86400000);
-    const gamma = (2 * Math.PI / 365) * (dayOfYear - 1);
-    const eqTime = 229.18 * (
-        0.000075 +
-        0.001868 * Math.cos(gamma) -
-        0.032077 * Math.sin(gamma) -
-        0.014615 * Math.cos(2 * gamma) -
-        0.040849 * Math.sin(2 * gamma)
-    );
-    const decl = 0.006918 -
-        0.399912 * Math.cos(gamma) +
-        0.070257 * Math.sin(gamma) -
-        0.006758 * Math.cos(2 * gamma) +
-        0.000907 * Math.sin(2 * gamma) -
-        0.002697 * Math.cos(3 * gamma) +
-        0.00148 * Math.sin(3 * gamma);
-
-    const latRad = deg2rad(lat);
-    const zenith = deg2rad(90.833);
-    const cosHa = (Math.cos(zenith) / (Math.cos(latRad) * Math.cos(decl))) - Math.tan(latRad) * Math.tan(decl);
-    const hasSunrise = cosHa >= -1 && cosHa <= 1;
-    const hourAngle = hasSunrise ? Math.acos(clamp(cosHa, -1, 1)) : (cosHa > 1 ? 0 : Math.PI);
-    const daylightHours = hasSunrise ? (2 * rad2deg(hourAngle)) / 15 : (cosHa > 1 ? 0 : 24);
-    const timezoneOffsetMin = getTimeZoneOffsetMinutes(date, timeZone);
-    const solarNoonMin = 720 - (4 * lon) - eqTime + timezoneOffsetMin;
-    const sunriseMin = solarNoonMin - rad2deg(hourAngle) * 4;
-    const sunsetMin = solarNoonMin + rad2deg(hourAngle) * 4;
-
-    const sunriseHour = Math.floor((sunriseMin % 1440 + 1440) % 1440 / 60);
-    const sunriseMinute = Math.round((sunriseMin % 60 + 60) % 60);
-    const sunsetHour = Math.floor((sunsetMin % 1440 + 1440) % 1440 / 60);
-    const sunsetMinute = Math.round((sunsetMin % 60 + 60) % 60);
-
-    const dateKey = `${parts.year}-${parts.month}-${parts.day}`;
-    const sunriseIso = `${dateKey}T${String(sunriseHour).padStart(2, '0')}:${String(sunriseMinute).padStart(2, '0')}`;
-    const sunsetIso = `${dateKey}T${String(sunsetHour).padStart(2, '0')}:${String(sunsetMinute).padStart(2, '0')}`;
-
-    return {
-        sunriseIso,
-        sunsetIso,
-        sunriseTs: parseSolarTime(sunriseIso),
-        sunsetTs: parseSolarTime(sunsetIso),
-        daylightHours,
-        dateKey
-    };
-}
-
-function pseudoDayNoise(date) {
-    const seed = date.getFullYear() * 1000 + (date.getMonth() + 1) * 37 + date.getDate() * 101;
-    const x = Math.sin(seed * 12.9898) * 43758.5453;
-    return x - Math.floor(x);
-}
-
-function buildFallbackSolarData(now = new Date()) {
-    const season = getSeason(now);
-    const systemKWp = PEAK_POWER / 1000;
-    const daily = {
-        time: [],
-        sunrise: [],
-        sunset: [],
-        shortwave_radiation_sum: [],
-        temperature_2m_max: [],
-        temperature_2m_min: [],
-        precipitation_sum: [],
-        weather_code: []
-    };
-    const hourly = {
-        time: [],
-        shortwave_radiation: []
-    };
-
-    const currentSolar = getSolarTimesForDate(now);
-    const currentNoise = pseudoDayNoise(now);
-    const currentClouds = Math.round(clamp(18 + currentNoise * 62 + (1 - season.factor) * 12, 10, 90));
-    const currentHumidity = Math.round(clamp(42 + currentNoise * 45 + (1 - season.factor) * 18, 20, 98));
-    const currentTemp = Math.round(clamp(
-        (season.factor * 16) + (currentNoise * 10) - 2,
-        -12,
-        34
-    ));
-    const isDay = currentSolar ? Date.now() >= currentSolar.sunriseTs && Date.now() <= currentSolar.sunsetTs : false;
-    const daylightFactor = currentSolar && Number.isFinite(currentSolar.daylightHours) ? clamp(currentSolar.daylightHours / 12, 0.45, 1.25) : 1;
-    const cloudFactor = 1 - (currentClouds / 100) * 0.85;
-    const currentRadiation = isDay ? Math.round(clamp(840 * season.factor * cloudFactor * daylightFactor, 40, 980)) : 0;
-
-    for (let i = -1; i < 14; i++) {
-        const day = new Date(now);
-        day.setHours(12, 0, 0, 0);
-        day.setDate(day.getDate() + i);
-        const times = getSolarTimesForDate(day);
-        const noise = pseudoDayNoise(day);
-        const clouds = Math.round(clamp(20 + noise * 60 + (1 - season.factor) * 15 + Math.abs(i) * 1.2, 10, 95));
-        const tempMin = Math.round(clamp((season.factor * 6) - 6 + noise * 6 - Math.max(0, i) * 0.2, -18, 24));
-        const tempMax = Math.round(clamp(tempMin + 7 + season.factor * 10 + noise * 4, -8, 38));
-        const rain = Math.max(0, Number((noise * (1 - season.factor) * 2.8).toFixed(1)));
-        const dayLength = times && Number.isFinite(times.daylightHours) ? times.daylightHours : 12;
-        const prodKwh = systemKWp * 4.2 * season.factor * clamp(1 - (clouds / 100) * 0.75, 0.2, 1) * clamp(dayLength / 12, 0.5, 1.3);
-        const shortwaveSum = prodKwh * 3.6 / (systemKWp * 0.82);
-        const weatherCode = clouds < 20 ? 0 : clouds < 35 ? 1 : clouds < 55 ? 2 : clouds < 75 ? 3 : 61;
-
-        daily.time.push(times?.dateKey || getLocalDateKey(day));
-        daily.sunrise.push(times?.sunriseIso || null);
-        daily.sunset.push(times?.sunsetIso || null);
-        daily.shortwave_radiation_sum.push(Number(shortwaveSum.toFixed(2)));
-        daily.temperature_2m_max.push(tempMax);
-        daily.temperature_2m_min.push(tempMin);
-        daily.precipitation_sum.push(rain);
-        daily.weather_code.push(weatherCode);
-    }
-
-    for (let h = -24; h < 24; h++) {
-        const hourDate = new Date(now);
-        hourDate.setMinutes(0, 0, 0);
-        hourDate.setHours(hourDate.getHours() + h);
-        const times = getSolarTimesForDate(hourDate);
-        const noise = pseudoDayNoise(hourDate);
-        const clouds = Math.round(clamp(18 + noise * 65 + (1 - season.factor) * 10, 8, 92));
-        const factor = 1 - (clouds / 100) * 0.85;
-        let radiation = 0;
-        if (times && Number.isFinite(times.sunriseTs) && Number.isFinite(times.sunsetTs) && hourDate.getTime() >= times.sunriseTs && hourDate.getTime() <= times.sunsetTs) {
-            const ratio = clamp((hourDate.getTime() - times.sunriseTs) / (times.sunsetTs - times.sunriseTs), 0, 1);
-            radiation = Math.round(clamp(Math.sin(Math.PI * ratio) * 860 * season.factor * factor, 0, 1000));
-        }
-        hourly.time.push(Math.floor(hourDate.getTime() / 1000));
-        hourly.shortwave_radiation.push(radiation);
-    }
-
-    return {
-        current: {
-            shortwave_radiation: currentRadiation,
-            cloud_cover: currentClouds,
-            is_day: isDay ? 1 : 0,
-            temperature_2m: currentTemp,
-            relative_humidity_2m: currentHumidity,
-            weather_code: currentClouds < 20 ? 0 : currentClouds < 35 ? 1 : currentClouds < 55 ? 2 : currentClouds < 75 ? 3 : 61
-        },
-        daily,
-        hourly,
-        source: 'fallback'
-    };
-}
-
-function getCurrentHourlyValue(hourly, field, now = new Date(), timeZone = SOLAR_WIDGET_TIMEZONE) {
-    const times = Array.isArray(hourly?.time) ? hourly.time : [];
-    const values = Array.isArray(hourly?.[field]) ? hourly[field] : [];
-    if (!times.length || !values.length) return null;
-
-    const nowKey = getLocalDateKey(now, timeZone);
-    const nowHour = now.getHours();
-    let bestIndex = -1;
-    let bestDiff = Infinity;
-
-    for (let i = 0; i < times.length && i < values.length; i++) {
-        const raw = times[i];
-        const ts = typeof raw === 'number' ? (raw < 1e12 ? raw * 1000 : raw) : new Date(raw).getTime();
-        if (!Number.isFinite(ts)) continue;
-
-        const tsDate = new Date(ts);
-        if (getLocalDateKey(tsDate, timeZone) !== nowKey) continue;
-
-        const diff = Math.abs(tsDate.getHours() - nowHour);
-        if (diff < bestDiff) {
-            bestDiff = diff;
-            bestIndex = i;
-        }
-    }
-
-    if (bestIndex === -1) {
-        bestIndex = Math.min(times.length - 1, Math.max(0, Math.floor(times.length / 2)));
-    }
-
-    const value = values[bestIndex];
-    return Number.isFinite(value) ? value : null;
 }
 
 function updateSolarDailyValue() {
@@ -1830,35 +1592,14 @@ function bvToRgb(bvRaw) {
 async function loadSkyCatalogs() {
     if (skyCatalogsPromise) return skyCatalogsPromise;
     skyCatalogsPromise = (async () => {
-        try {
-            // Używamy Promise.allSettled, aby błąd jednego pliku nie blokował drugiego
-            const results = await Promise.allSettled([
-                fetch(SKY_CATALOG_STARS_URL, { cache: 'force-cache' }),
-                fetch(SKY_CATALOG_CONSTELLATIONS_URL, { cache: 'force-cache' })
-            ]);
-
-            let starsJson = null;
-            let constellationsJson = null;
-
-            // Sprawdzamy wynik dla gwiazd
-            if (results[0].status === 'fulfilled' && results[0].value.ok) {
-                starsJson = await results[0].value.json().catch(() => null);
-            } else {
-                console.warn('Widżet: Nie znaleziono pliku stars.6.json, używam fallbacku.');
-            }
-
-            // Sprawdzamy wynik dla linii konstelacji
-            if (results[1].status === 'fulfilled' && results[1].value.ok) {
-                constellationsJson = await results[1].value.json().catch(() => null);
-            } else {
-                console.warn('Widżet: Nie znaleziono pliku constellations.lines.json - linie nie będą rysowane.');
-            }
-
-            return { stars: starsJson, constellations: constellationsJson };
-        } catch (e) {
-            console.error('Błąd krytyczny podczas ładowania danych nieba:', e);
-            return { stars: null, constellations: null };
-        }
+        const [starsRes, constRes] = await Promise.all([
+            fetch(SKY_CATALOG_STARS_URL, { cache: 'force-cache' }),
+            fetch(SKY_CATALOG_CONSTELLATIONS_URL, { cache: 'force-cache' })
+        ]);
+        if (!starsRes.ok) throw new Error(`Nie udało się pobrać katalogu gwiazd (${starsRes.status})`);
+        if (!constRes.ok) throw new Error(`Nie udało się pobrać linii konstelacji (${constRes.status})`);
+        const [starsJson, constJson] = await Promise.all([starsRes.json(), constRes.json()]);
+        return { stars: starsJson, constellations: constJson };
     })();
     return skyCatalogsPromise;
 }
@@ -2598,184 +2339,6 @@ function wmoIcon(code) {
     return                               { icon: '⛈️',  label: 'Burza z gradem' };
 }
 
-// ============================================================
-//  WYKRES PRODUKCJI DOBOWEJ – wykres godzinowy jak w SolarEdge
-// ============================================================
-let dayChartInstance = null;
-
-function renderDayChart() {
-    const wrap = document.getElementById('sw-daychart-wrap');
-    const canvas = document.getElementById('sw-daychart');
-    if (!wrap || !canvas || !solarState || !solarState.hourly) return;
-
-    const hourly = solarState.hourly;
-    const now = new Date();
-    const efficiency = 0.82;
-    const systemKWp = PEAK_POWER / 1000;
-
-    // Buduj tablicę 24h dla dzisiejszego dnia (0:00 – 23:00)
-    const todayKey = now.toLocaleDateString('sv-SE', { timeZone: 'Europe/Warsaw' }); // "YYYY-MM-DD"
-    const labels = [];
-    const dataKW = [];
-    const weatherIcons = [];
-
-    // Wyciągnij hourly dane tylko dla dzisiaj
-    for (let i = 0; i < hourly.time.length; i++) {
-        const ts = hourly.time[i]; // Unix timestamp (s)
-        const d = new Date(ts * 1000);
-        const dayKey = d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Warsaw' });
-        if (dayKey !== todayKey) continue;
-
-        const hh = d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' });
-        labels.push(hh);
-
-        const rad = hourly.shortwave_radiation[i] ?? 0;
-        const kw = parseFloat(((rad / 1000) * systemKWp * efficiency).toFixed(3));
-        dataKW.push(kw);
-    }
-
-    if (labels.length === 0) { wrap.style.display = 'none'; return; }
-    wrap.style.display = '';
-
-    // Ikony pogody co 4 godziny (na górze wykresu)
-    const daily = solarState.daily;
-    const wCode = daily?.weather_code?.[0] ?? 0;
-    const wmoIcon = (code) => {
-        if (code === 0) return '☀️';
-        if (code <= 2) return '🌤️';
-        if (code === 3) return '☁️';
-        if (code <= 48) return '🌫️';
-        if (code <= 57) return '🌦️';
-        if (code <= 67) return '🌧️';
-        if (code <= 77) return '❄️';
-        if (code <= 82) return '🌧️';
-        return '⛈️';
-    };
-    const weatherEl = document.getElementById('sw-daychart-weather');
-    if (weatherEl) {
-        // Pokaż ikonę co ~4 godziny (6 pozycji)
-        const step = Math.floor(labels.length / 6) || 1;
-        let html = '';
-        for (let i = 0; i < labels.length; i += step) {
-            html += `<span title="${labels[i]}">${wmoIcon(wCode)}</span>`;
-        }
-        weatherEl.innerHTML = html;
-    }
-
-    // Całkowita suma dzienna kWh (trapezy)
-    const totalKWh = dataKW.reduce((s, v) => s + v, 0).toFixed(2);
-    const price = (() => { const el = document.getElementById('range-price'); return el ? parseFloat(el.value) : 1.10; })();
-    const totalEl = document.getElementById('sw-daychart-total');
-    if (totalEl) totalEl.textContent = `Suma: ${totalKWh} kWh ≈ ${(totalKWh * price).toFixed(2)} zł`;
-
-    // Linia "teraz" — aktualny indeks godziny
-    const nowHour = now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' });
-    const nowIdx = labels.indexOf(nowHour);
-
-    // Gradient fill pod wykresem
-    const ctx = canvas.getContext('2d');
-    const gradient = ctx.createLinearGradient(0, 0, 0, 160);
-    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.55)');
-    gradient.addColorStop(1, 'rgba(59, 130, 246, 0.03)');
-
-    // Zniszcz poprzedni wykres
-    if (dayChartInstance) { dayChartInstance.destroy(); dayChartInstance = null; }
-
-    dayChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Produkcja (kW)',
-                data: dataKW,
-                fill: true,
-                backgroundColor: gradient,
-                borderColor: 'rgba(96, 165, 250, 0.9)',
-                borderWidth: 2,
-                pointRadius: 0,
-                pointHoverRadius: 5,
-                pointHoverBackgroundColor: '#60a5fa',
-                tension: 0.35,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: 'rgba(15,23,42,0.92)',
-                    titleColor: 'rgba(255,255,255,0.6)',
-                    bodyColor: '#60a5fa',
-                    borderColor: 'rgba(96,165,250,0.3)',
-                    borderWidth: 1,
-                    padding: 10,
-                    callbacks: {
-                        title: (items) => `Godzina: ${items[0].label}`,
-                        label: (item) => {
-                            const kw = item.raw;
-                            const kwh = kw.toFixed(2);
-                            const zl = (kw * price).toFixed(2);
-                            return [`Produkcja: ${kwh} kW`, `Zysk: ≈ ${zl} zł`];
-                        }
-                    }
-                },
-                // Pionowa linia "teraz"
-                ...(nowIdx >= 0 ? {
-                    annotation: undefined
-                } : {})
-            },
-            scales: {
-                x: {
-                    grid: { color: 'rgba(255,255,255,0.05)' },
-                    ticks: {
-                        color: 'rgba(255,255,255,0.4)',
-                        font: { size: 10 },
-                        maxTicksLimit: 8,
-                        maxRotation: 0,
-                    },
-                    border: { color: 'rgba(255,255,255,0.1)' }
-                },
-                y: {
-                    min: 0,
-                    grid: { color: 'rgba(255,255,255,0.05)' },
-                    ticks: {
-                        color: 'rgba(255,255,255,0.4)',
-                        font: { size: 10 },
-                        callback: v => v.toFixed(1) + ' kW',
-                        maxTicksLimit: 5,
-                    },
-                    border: { color: 'rgba(255,255,255,0.1)' }
-                }
-            }
-        },
-        plugins: [{
-            // Pionowa linia "TERAZ"
-            id: 'nowLine',
-            afterDraw(chart) {
-                if (nowIdx < 0) return;
-                const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
-                const xPos = x.getPixelForIndex(nowIdx);
-                ctx.save();
-                ctx.beginPath();
-                ctx.setLineDash([4, 3]);
-                ctx.strokeStyle = 'rgba(245, 158, 11, 0.8)';
-                ctx.lineWidth = 1.5;
-                ctx.moveTo(xPos, top);
-                ctx.lineTo(xPos, bottom);
-                ctx.stroke();
-                ctx.fillStyle = 'rgba(245, 158, 11, 0.9)';
-                ctx.font = '10px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('teraz', xPos, top - 4);
-                ctx.restore();
-            }
-        }]
-    });
-}
-
-
 function renderForecast(view) {
     const container = document.getElementById('sw-forecast');
     if (!container || !solarState || !solarState.daily) return;
@@ -2795,34 +2358,14 @@ function renderForecast(view) {
             return;
         }
         const localNow = new Date();
-        // API zwraca Unix timestamps (sekundy) z powodu &timeformat=unixtime
-        // Szukamy godziny bieżącej przez porównanie Unix ts
-        const nowHourTs = Math.floor(localNow.getTime() / 1000 / 3600) * 3600; // zaokrąglenie do godziny
-        const isUnix = typeof hourly.time[0] === 'number';
+        const year = localNow.getFullYear();
+        const month = String(localNow.getMonth() + 1).padStart(2, '0');
+        const day = String(localNow.getDate()).padStart(2, '0');
+        const hour = String(localNow.getHours()).padStart(2, '0');
+        const currentLocalIso = `${year}-${month}-${day}T${hour}:00`;
 
-        let currentIndex;
-        if (isUnix) {
-            currentIndex = hourly.time.findIndex(t => t >= nowHourTs);
-            if (currentIndex === -1) currentIndex = hourly.time.length - 1;
-            // cofnij jeśli wskazuje na przyszłość
-            if (currentIndex > 0 && hourly.time[currentIndex] > nowHourTs) currentIndex--;
-        } else {
-            const year = localNow.getFullYear();
-            const month = String(localNow.getMonth() + 1).padStart(2, '0');
-            const day = String(localNow.getDate()).padStart(2, '0');
-            const hour = String(localNow.getHours()).padStart(2, '0');
-            const currentLocalIso = `${year}-${month}-${day}T${hour}:00`;
-            currentIndex = hourly.time.findIndex(t => t === currentLocalIso);
-            if (currentIndex === -1) currentIndex = hourly.time.length - 1;
-        }
-
-        // helper: Unix ts lub ISO string → "HH:MM"
-        function tsToHourStr(t) {
-            if (typeof t === 'number') {
-                return new Date(t * 1000).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' });
-            }
-            return t.split('T')[1].substring(0, 5);
-        }
+        let currentIndex = hourly.time.findIndex(t => t === currentLocalIso);
+        if (currentIndex === -1) currentIndex = hourly.time.length - 1;
 
         const startIndex = Math.max(0, currentIndex - 23);
         const dataSlice = hourly.shortwave_radiation.slice(startIndex, currentIndex + 1);
@@ -2835,7 +2378,7 @@ function renderForecast(view) {
         const totalSaved = total24h * currentPrice;
         const maxHourVal = Math.max(...historyKWh);
         const maxHourIdx = historyKWh.indexOf(maxHourVal);
-        const maxHourStr = tsToHourStr(timeSlice[maxHourIdx]);
+        const maxHourStr = timeSlice[maxHourIdx].split('T')[1].substring(0, 5);
 
         if (titleEl) {
             titleEl.innerHTML = `Ostatnie 24h <span style="color:#60a5fa; margin-left:8px; text-transform:none; font-weight:600; font-size:0.8rem;">(Suma: ${total24h.toFixed(2)} kWh ≈ ${totalSaved.toFixed(2)} zł)</span>` +
@@ -2846,7 +2389,7 @@ function renderForecast(view) {
 
         timeSlice.forEach((iso, i) => {
             const val = historyKWh[i];
-            const hourStr = tsToHourStr(iso);
+            const hourStr = iso.split('T')[1].substring(0, 5);
             const heightPct = Math.max((val / maxKWh) * 100, 2);
             const hourlySaved = val * currentPrice;
             const tooltip = `Godzina: ${hourStr}\nProdukcja: ${val.toFixed(2)} kWh\nZysk: ${hourlySaved.toFixed(2)} zł`;
@@ -2967,11 +2510,10 @@ function getMoonData(date) {
     return { phase, age, illumination, waxing, phaseIndex };
 }
 
-// Tryb nocny tylko dla localhost/127.0.0.1 (bezpieczny debug)
-const DEBUG_FORCE_NIGHT = (
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
-    new URLSearchParams(window.location.search).get('night') === '1'
-);
+const DEBUG_FORCE_NIGHT = new URLSearchParams(window.location.search).get('night') === '1';
+if (DEBUG_FORCE_NIGHT) {
+    debugLog('🌙 Debug: wymuszony tryb nocny przez parametr ?night=1');
+}
 
 function applyMoonVisuals(sunWrapper, moon) {
     if (!sunWrapper || !moon) return;
@@ -3086,37 +2628,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Odświeżaj co 60 sekund (aktualizacja licznika zarobku)
-let earnedCounterInterval = setInterval(function() {
+// Od?wie?aj co 60 sekund (aktualizacja "dzi?" z API)
+setInterval(function() {
     if (typeof updateEarnedCounter === 'function') updateEarnedCounter();
 }, 60000);
 
-// Zatrzymaj gdy karta niewidoczna (oszczędność CPU)
-document.addEventListener('visibilitychange', function() {
-    if (document.hidden) {
-        clearInterval(earnedCounterInterval);
-        earnedCounterInterval = null;
-    } else if (!earnedCounterInterval) {
-        earnedCounterInterval = setInterval(function() {
-            if (typeof updateEarnedCounter === 'function') updateEarnedCounter();
-        }, 60000);
-    }
-});
-
 async function loadSolarData() {
     clearTimeout(solarTimeout);
+    debugLog('☀️ loadSolarData() uruchomiona o:', new Date().toLocaleTimeString());
 
     const refreshBtn = document.getElementById('sw-refresh-btn');
     if(refreshBtn) refreshBtn.classList.add('loading');
-    setSolarApiDebug('API: łączenie...', 'info');
 
     const now = new Date();
     const season = getSeason(now);
     const seasonEl = document.getElementById('sw-season');
     if(seasonEl) seasonEl.textContent = season.label;
-    const loadingEl = document.getElementById('sw-loading');
 
     // Upewnij si? ?e loading jest widoczny na start
+    const loadingEl = document.getElementById('sw-loading');
     if (loadingEl) {
         loadingEl.style.display = 'flex';
         loadingEl.innerHTML = '<div class="sw-spinner"></div> Pobieranie danych...';
@@ -3132,16 +2662,16 @@ async function loadSolarData() {
             `&timezone=Europe/Warsaw` +
             `&forecast_days=14&past_days=1`;
 
-        const response = await fetchWithTimeout(url, 8000);
+        debugLog('☀️ Fetch URL:', url);
 
+        const response = await fetchWithTimeout(url, 8000);
+        
         if (!response.ok) {
-            setSolarApiDebug(`API: HTTP ${response.status} ${response.statusText}`, 'warning');
             throw new Error(`API HTTP ${response.status}: ${response.statusText}`);
         }
 
         const data = await response.json();
-        setSolarApiDebug(`API: OK (${response.status}) • źródło live`, 'success');
-
+        debugLog('☀️ Dane z API:', data.current);
 
 // Wschd / Zachd
         const dailyIndex = getTodayDailyIndex(data.daily, now, SOLAR_WIDGET_TIMEZONE);
@@ -3166,12 +2696,10 @@ async function loadSolarData() {
         if (elSunrise) elSunrise.textContent = formatTime(sunriseIso);
         if (elSunset)  elSunset.textContent  = formatTime(sunsetIso);
 
+        debugLog('☀️ Wschód:', formatTime(sunriseIso), '| Zachód:', formatTime(sunsetIso), '| Indeks dnia:', dailyIndex, '| Data:', dailyTime);
         
 // Dane meteo
-        const currentRadiation = Number.isFinite(data.current?.shortwave_radiation)
-            ? data.current.shortwave_radiation
-            : getCurrentHourlyValue(data.hourly, 'shortwave_radiation', now) ?? 0;
-        const radiation = Math.round(currentRadiation);
+        const radiation = Math.round(data.current?.shortwave_radiation ?? 0);
         const clouds    = Math.round(data.current?.cloud_cover ?? 0);
         const isDay     = data.current?.is_day === 1;
         const visualIsDay = DEBUG_FORCE_NIGHT ? false : isDay;
@@ -3205,6 +2733,7 @@ async function loadSolarData() {
 // OBLICZANIE FAZY KSIYCA (Lokalnie)
                 const moon = getMoonData(new Date());
                 applyMoonVisuals(sunWrapper, moon);
+                debugLog(`🌙 Faza księżyca: idx=${moon.phaseIndex}, illum=${moon.illumination.toFixed(3)}, waxing=${moon.waxing}`);
             }
         }
         if (heroSection) {
@@ -3253,6 +2782,7 @@ async function loadSolarData() {
             themeMeta.content = visualIsDay ? '#F7F3EC' : '#0f172a';
         }
 
+        debugLog(`☀️ Promieniowanie: ${radiation} W/m² | Zachmurzenie: ${clouds}% | Wilgotność: ${humidity}%`);
 
         const elRadiation = document.getElementById('sw-radiation');
         const elClouds    = document.getElementById('sw-clouds');
@@ -3286,6 +2816,7 @@ async function loadSolarData() {
         // Od?wie? licznik zarobku po za?adowaniu danych dziennych
         if (typeof updateEarnedCounter === 'function') updateEarnedCounter();
 
+        debugLog(`☀️ Produkcja dziś: ${producedKWh.toFixed(2)} kWh`);
 
 // Badges (Weather Code)
         const wCode = data.current?.weather_code ?? 0;
@@ -3356,156 +2887,49 @@ async function loadSolarData() {
         if (typeof renderForecast === 'function') {
             renderForecast(currentForecastView);
         }
-        if (typeof renderDayChart === 'function') {
-            renderDayChart();
-        }
 
-        // Auto-odswiezanie co 10 min
+        // Auto-od?wie?anie co 10 min
         solarTimeout = setTimeout(loadSolarData, 10 * 60 * 1000);
 
     } catch (err) {
         // Rozróżniamy timeout od innych błędów
         const isTimeout = err.name === 'AbortError';
-        const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
-        const errName = err?.name || 'Error';
         const msg = isTimeout
             ? '⏱ Timeout — serwer nie odpowiedział w 8 s'
             : `⚠️ ${err.message}`;
 
-        if (isTimeout) {
-            setSolarApiDebug('API: timeout po 8 s', 'error');
-        } else if (isOffline) {
-            setSolarApiDebug('API: brak internetu / offline', 'error');
-        } else if (errName === 'TypeError' && /fetch/i.test(String(err.message || ''))) {
-            setSolarApiDebug('API: fetch error (CORS / blokada przeglądarki)', 'error');
-        } else {
-            setSolarApiDebug(`API: błąd (${errName})`, 'error');
-        }
-
         console.error('☀️ Solar widget błąd:', err);
 
-        const fallbackData = buildFallbackSolarData(now);
-        const fallbackDailyIndex = getTodayDailyIndex(fallbackData.daily, now, SOLAR_WIDGET_TIMEZONE);
-        const fallbackSeason = getSeason(now);
-        const solarWidget = document.querySelector('.solar-widget');
-        const heroSection = document.querySelector('.hero');
-        const sunWrapper = document.getElementById('sun-wrapper');
-        const titleText = document.getElementById('sw-title-text');
-        const isDayFallback = fallbackData.current?.is_day === 1;
-        const visualIsDay = DEBUG_FORCE_NIGHT ? false : isDayFallback;
-
-        if (sunWrapper) {
-            if (visualIsDay) {
-                sunWrapper.classList.remove('is-night');
-                sunWrapper.removeAttribute('data-phase');
-                sunWrapper.style.removeProperty('--moon-halo-alpha');
-            } else {
-                sunWrapper.classList.add('is-night');
+        // Fallback: Ustaw tryb nocny na podstawie godziny systemowej, je?li API zawiod?o
+        const h = new Date().getHours();
+        if (DEBUG_FORCE_NIGHT || h < 6 || h >= 20) {
+            const sunWrapper = document.getElementById('sun-wrapper');
+            const heroSection = document.querySelector('.hero');
+            const solarWidget = document.querySelector('.solar-widget');
+            if (sunWrapper) sunWrapper.classList.add('is-night');
+            if (heroSection) {
                 const moon = getMoonData(new Date());
-                applyMoonVisuals(sunWrapper, moon);
-            }
-        }
-        if (heroSection) {
-            if (visualIsDay) {
-                heroSection.classList.remove('is-night');
-                stopHeroSky();
-            } else {
                 heroSection.classList.add('is-night');
                 startHeroSky();
+                applyMoonVisuals(sunWrapper, moon);
             }
-            const wCode = fallbackData.current?.weather_code ?? 0;
-            const humidity = Math.round(fallbackData.current?.relative_humidity_2m ?? 0);
-            const isFoggy = humidity >= 90 || (wCode >= 45 && wCode <= 48);
-            if (isFoggy) heroSection.classList.add('is-foggy');
-            else heroSection.classList.remove('is-foggy');
-        }
-        if (solarWidget) {
-            if (visualIsDay) {
-                solarWidget.classList.remove('is-night');
-                stopStars();
-            } else {
-                solarWidget.classList.add('is-night');
-                startStars();
+            if (solarWidget) { solarWidget.classList.add('is-night'); startStars(); }
+            const favicon = document.querySelector("link[rel~='icon']");
+            if (favicon) {
+                const svgAnim = `<style>text{animation:f 1.5s ease-out}@keyframes f{from{opacity:0}to{opacity:1}}</style>`;
+                favicon.href = `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22>${svgAnim}<text y=%22.9em%22 font-size=%2290%22>🌙</text></svg>`;
             }
-        }
-
-        if (titleText) {
-            titleText.textContent = visualIsDay ? 'Nasłonecznienie dzisiaj' : 'Warunki nocne';
-        }
-
-        const elSunrise = document.getElementById('sw-sunrise');
-        const elSunset = document.getElementById('sw-sunset');
-        const elRadiation = document.getElementById('sw-radiation');
-        const elClouds = document.getElementById('sw-clouds');
-        const elPanels = document.getElementById('sw-panels');
-        const elTemp = document.getElementById('sw-current-temp');
-
-        if (elSunrise) elSunrise.textContent = formatTime(fallbackData.daily?.sunrise?.[fallbackDailyIndex]);
-        if (elSunset) elSunset.textContent = formatTime(fallbackData.daily?.sunset?.[fallbackDailyIndex]);
-        if (elRadiation) elRadiation.textContent = `${fallbackData.current?.shortwave_radiation ?? 0} W/m²`;
-        if (elClouds) elClouds.textContent = `${fallbackData.current?.cloud_cover ?? 0}%`;
-
-        const fallbackRadiation = Number(fallbackData.current?.shortwave_radiation ?? 0);
-        const fallbackPanelOutput = visualIsDay ? Math.round((fallbackRadiation / 1000) * PEAK_POWER * 0.82) : 0;
-        if (elPanels) elPanels.textContent = `${fallbackPanelOutput} W`;
-        if (elTemp) {
-            const temp = Math.round(fallbackData.current?.temperature_2m ?? 0);
-            elTemp.textContent = `${temp}°C`;
-            if (temp < 0) elTemp.style.color = '#3b82f6';
-            else if (temp > 25) elTemp.style.color = '#ef4444';
-            else elTemp.style.color = 'var(--sun)';
-        }
-
-        weatherState.temperatureC = Math.round(fallbackData.current?.temperature_2m ?? 0);
-        weatherState.radiationWm2 = fallbackRadiation;
-        calcUpdate();
-        updateLivePower(fallbackPanelOutput, visualIsDay);
-
-        solarState = {
-            sunriseTs: parseSolarTime(fallbackData.daily?.sunrise?.[fallbackDailyIndex]),
-            sunsetTs: parseSolarTime(fallbackData.daily?.sunset?.[fallbackDailyIndex]),
-            radiation: Math.round(fallbackRadiation),
-            clouds: Math.round(fallbackData.current?.cloud_cover ?? 0),
-            daily: fallbackData.daily,
-            hourly: fallbackData.hourly,
-            currentProduction: 0,
-            source: 'fallback'
-        };
-
-        updateSolarDailyValue();
-        if (typeof updateEarnedCounter === 'function') updateEarnedCounter();
-        if (typeof renderForecast === 'function') renderForecast(currentForecastView);
-        if (typeof renderDayChart === 'function') renderDayChart();
-        startSolarClock();
-        window.dispatchEvent(new CustomEvent('solarDataLoaded'));
-
-        const badgesEl = document.getElementById('sw-badges');
-        if (badgesEl) {
-            const wmo = fallbackData.current?.weather_code ?? 0;
-            let wIcon = '<i class="fas fa-cloud"></i>';
-            let wText = 'Pochmurno';
-            if (wmo === 0) {
-                wIcon = visualIsDay ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
-                wText = 'Bezchmurnie';
-            } else if (wmo === 1 || wmo === 2) {
-                wIcon = visualIsDay ? '<i class="fas fa-cloud-sun"></i>' : '<i class="fas fa-cloud-moon"></i>';
-                wText = 'Małe zachmurzenie';
-            } else if (wmo >= 45 && wmo <= 48) {
-                wIcon = '<i class="fas fa-smog"></i>';
-                wText = 'Mgła';
+            const themeMeta = document.querySelector('meta[name="theme-color"]');
+            if (themeMeta) {
+                themeMeta.content = '#0f172a';
             }
-            badgesEl.innerHTML =
-                `<span class="sw-season-badge sw-animate-in">${fallbackSeason.label}</span>` +
-                `<span class="sw-season-badge sw-animate-in" style="background:rgba(125,211,252,0.1);border-color:rgba(125,211,252,0.25);color:#7DD3FC;">${wIcon} ${wText} (${fallbackData.current?.cloud_cover ?? 0}%)</span>` +
-                `<span class="sw-season-badge sw-animate-in" style="background:rgba(250,204,21,0.1);border-color:rgba(250,204,21,0.25);color:#fde68a;">Tryb awaryjny</span>`;
         }
 
         if (loadingEl) {
             loadingEl.style.display = 'flex';
             loadingEl.innerHTML = `
                 <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
-                    <span style="color:rgba(255,255,255,0.92); font-size:0.85rem;">Brak połączenia z API. Pokazuję lokalne szacunki produkcji.</span>
-                    <span style="color:rgba(255,255,255,0.6); font-size:0.75rem;">${msg}</span>
+                    <span style="color:rgba(239,68,68,0.9); font-size:0.85rem;">${msg}</span>
                     <button id="sw-retry-btn" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:rgba(255,255,255,0.9); padding:5px 14px; border-radius:100px; font-size:0.75rem; cursor:pointer;">
                         Spróbuj ponownie ↻
                     </button>
@@ -3520,13 +2944,8 @@ async function loadSolarData() {
             }
         }
 
-        const canvas = document.getElementById('solarCanvas');
-        if (canvas) {
-            canvas.style.display = 'block';
-            drawSolarCurve();
-        }
-
-        solarTimeout = setTimeout(loadSolarData, 10 * 60 * 1000);
+        // Spróbuj ponownie za 2 minuty po błędzie
+        solarTimeout = setTimeout(loadSolarData, 2 * 60 * 1000);
 
     } finally {
         const btn = document.getElementById('sw-refresh-btn');
@@ -5039,3 +4458,6 @@ function initImageLightbox() {
     });
 }
 initImageLightbox();
+
+
+

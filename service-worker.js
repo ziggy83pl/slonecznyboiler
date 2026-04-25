@@ -1,14 +1,15 @@
-const CACHE_NAME = 'sloneczny-bojler-v52';
+const CACHE_NAME = 'sloneczny-bojler-v50';
 const urlsToCache = [
   './',
   './index.html',
   './blog.html',
-  './style.css',
-  './script.js',
+  './style.min.css',
+  './script.min.js',
   './blog.js',
   './portfolio-logos.js',
   './manifest.json',
   './stars.6.json',
+  './constellations.lines.json',
   './image/panele.jpg',
   './image/falownik.png',
   './logo/icon-192.png',
@@ -39,11 +40,6 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
     if (event.request.method !== 'GET') return;
-
-    const requestUrl = new URL(event.request.url);
-    if (requestUrl.origin !== self.location.origin) {
-        return;
-    }
     
     event.respondWith(
         fetch(event.request)

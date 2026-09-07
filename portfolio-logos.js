@@ -51,7 +51,7 @@ document.addEventListener("DOMContentLoaded", function() {
             overflow: hidden;
             flex: 1;
             position: relative;
-            padding: 30px 0 15px 0;
+            padding: 60px 0 15px 0;
             display: flex;
             align-items: flex-end;
             mask-image: linear-gradient(to right, transparent, white 8%, white 92%, transparent);
@@ -90,6 +90,10 @@ document.addEventListener("DOMContentLoaded", function() {
             position: relative;
             cursor: pointer;
             flex-shrink: 0;
+            z-index: 1;
+        }
+        #global-trusted-logos .logo-tooltip:hover {
+            z-index: 100;
         }
         #global-trusted-logos img {
             height: 70px;
@@ -120,7 +124,7 @@ document.addEventListener("DOMContentLoaded", function() {
         .logo-header {
             width: 100%;
             text-align: center;
-            margin-bottom: 25px;
+            margin-bottom: 15px;
             font-size: 1.5rem;
             font-weight: bold;
             color: inherit;
@@ -130,25 +134,28 @@ document.addEventListener("DOMContentLoaded", function() {
             content: attr(data-tooltip);
             position: absolute;
             bottom: 100%; left: 50%;
-            transform: translateX(-50%) translateY(10px);
+            transform: translateX(-50%) translateY(6px);
             background: var(--accent, #333); color: #fff;
-            padding: 8px 12px; border-radius: 6px;
-            font-size: 0.85rem; white-space: nowrap;
+            padding: 6px 12px; border-radius: 6px;
+            font-size: 0.82rem; white-space: nowrap;
             opacity: 0; visibility: hidden; pointer-events: none;
-            transition: 0.3s; z-index: 9999; margin-bottom: 12px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: all 0.25s ease; z-index: 9999; margin-bottom: 10px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.3);
         }
         .logo-tooltip::before {
             content: '';
             position: absolute;
             bottom: 100%; left: 50%;
-            transform: translateX(-50%) translateY(10px);
+            transform: translateX(-50%) translateY(6px);
             border: 6px solid transparent;
             border-top-color: var(--accent, #333);
             opacity: 0; visibility: hidden; pointer-events: none;
-            transition: 0.3s; z-index: 9999; margin-bottom: 0px;
+            transition: all 0.25s ease; z-index: 9999; margin-bottom: -2px;
         }
-        .logo-tooltip:hover::after, .logo-tooltip:hover::before { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+        .logo-tooltip:hover::after, .logo-tooltip:hover::before {
+            opacity: 1; visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
 
         /* --- STYLE MODALA (Okienka) --- */
         .pm-modal-overlay {

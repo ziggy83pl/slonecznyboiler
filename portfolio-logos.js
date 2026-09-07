@@ -12,38 +12,74 @@ document.addEventListener("DOMContentLoaded", function() {
             width: 100%;
             gap: 15px;
         }
+        .marquee-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 1140px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .marquee-nav-btn {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            z-index: 10;
+            flex-shrink: 0;
+            user-select: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .marquee-nav-btn:hover {
+            background: #F59E0B;
+            color: #0F172A;
+            border-color: #F59E0B;
+            transform: scale(1.1);
+        }
         .logos-marquee {
             overflow: hidden;
-            width: 100%;
-            max-width: 1080px;
-            margin: 0 auto;
+            flex: 1;
             position: relative;
             padding: 30px 0 15px 0;
             display: flex;
             align-items: flex-end;
-            mask-image: linear-gradient(to right, transparent, white 10%, white 90%, transparent);
-            -webkit-mask-image: linear-gradient(to right, transparent, white 10%, white 90%, transparent);
+            mask-image: linear-gradient(to right, transparent, white 8%, white 92%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, white 8%, white 92%, transparent);
+            user-select: none;
+            -webkit-user-select: none;
+            cursor: grab;
+            touch-action: pan-y;
+        }
+        .logos-marquee.is-dragging {
+            cursor: grabbing;
         }
         .logos-track {
             display: flex;
             width: max-content;
             gap: 0;
-            animation: scrollMarquee 35s linear infinite;
-        }
-        .logos-track:hover {
-            animation-play-state: paused;
+            will-change: transform;
         }
         .logos-track .logo-tooltip {
             margin: 0 15px;
             flex-shrink: 0;
+            user-select: none;
+            -webkit-user-drag: none;
         }
-        @keyframes scrollMarquee {
-            0% {
-                transform: translateX(0);
-            }
-            100% {
-                transform: translateX(-50%);
-            }
+        .logos-track .logo-tooltip img {
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-drag: none;
         }
         #global-trusted-logos .logo-tooltip {
             display: flex;
@@ -355,17 +391,148 @@ document.addEventListener("DOMContentLoaded", function() {
 
     let html = `<h2 class="logo-header" data-lang="portfolio_title">Wspieramy i Polecamy</h2>`;
     html += `
-        <div class="logos-marquee">
-            <div class="logos-track">
-                ${logosHtml}
-                ${logosHtml}
-                ${logosHtml}
-                ${logosHtml}
+        <div class="marquee-wrapper">
+            <button type="button" class="marquee-nav-btn" id="pm-nav-prev" aria-label="Przewiń w lewo (wstecz)">&#10094;</button>
+            <div class="logos-marquee" title="Przeciągnij w lewo lub w prawo, aby przewijać">
+                <div class="logos-track">
+                    ${logosHtml}
+                    ${logosHtml}
+                    ${logosHtml}
+                    ${logosHtml}
+                </div>
             </div>
+            <button type="button" class="marquee-nav-btn" id="pm-nav-next" aria-label="Przewiń w prawo (dalej)">&#10095;</button>
         </div>
     `;
 
     container.innerHTML = html;
+
+    // --- INTERAKTYWNA OBSŁUGA MARQUEE (DRAG & DROP, KÓŁKO, PRZYCISKI) ---
+    const marqueeEl = container.querySelector('.logos-marquee');
+    const trackEl = container.querySelector('.logos-track');
+    const prevBtn = container.querySelector('#pm-nav-prev');
+    const nextBtn = container.querySelector('#pm-nav-next');
+
+    let currentX = 0;
+    let isHovered = false;
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartCurrentX = 0;
+    let hasMoved = false;
+    let lastTime = performance.now();
+    const autoSpeed = 35; // px na sekundę
+
+    function getHalfWidth() {
+        return (trackEl ? trackEl.scrollWidth / 2 : 1200) || 1200;
+    }
+
+    function wrapX() {
+        const halfWidth = getHalfWidth();
+        while (currentX <= -halfWidth) { currentX += halfWidth; }
+        while (currentX > 0) { currentX -= halfWidth; }
+    }
+
+    function renderLoop(now) {
+        const delta = Math.min((now - lastTime) / 1000, 0.1);
+        lastTime = now;
+
+        if (!isHovered && !isDragging) {
+            currentX -= autoSpeed * delta;
+            wrapX();
+            if (trackEl) trackEl.style.transform = `translate3d(${currentX}px, 0, 0)`;
+        }
+        requestAnimationFrame(renderLoop);
+    }
+    requestAnimationFrame(renderLoop);
+
+    // Hover zatrzymuje ruch
+    if (marqueeEl) {
+        marqueeEl.addEventListener('mouseenter', () => { isHovered = true; });
+        marqueeEl.addEventListener('mouseleave', () => {
+            if (!isDragging) isHovered = false;
+        });
+
+        // Przeciąganie myszką (Mouse Drag)
+        marqueeEl.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            hasMoved = false;
+            dragStartX = e.clientX;
+            dragStartCurrentX = currentX;
+            marqueeEl.classList.add('is-dragging');
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - dragStartX;
+            if (Math.abs(dx) > 5) {
+                hasMoved = true;
+            }
+            currentX = dragStartCurrentX + dx;
+            wrapX();
+            if (trackEl) trackEl.style.transform = `translate3d(${currentX}px, 0, 0)`;
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                marqueeEl.classList.remove('is-dragging');
+                setTimeout(() => { hasMoved = false; }, 100);
+            }
+        });
+
+        // Przeciąganie dotykiem na telefonach (Touch Swipe)
+        marqueeEl.addEventListener('touchstart', (e) => {
+            isHovered = true;
+            isDragging = true;
+            hasMoved = false;
+            dragStartX = e.touches[0].clientX;
+            dragStartCurrentX = currentX;
+        }, { passive: true });
+
+        marqueeEl.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            const dx = e.touches[0].clientX - dragStartX;
+            if (Math.abs(dx) > 5) {
+                hasMoved = true;
+            }
+            currentX = dragStartCurrentX + dx;
+            wrapX();
+            if (trackEl) trackEl.style.transform = `translate3d(${currentX}px, 0, 0)`;
+        }, { passive: true });
+
+        marqueeEl.addEventListener('touchend', () => {
+            isDragging = false;
+            setTimeout(() => {
+                isHovered = false;
+                hasMoved = false;
+            }, 1200);
+        }, { passive: true });
+
+        // Kółko myszy (przewijanie kółkiem nad paskiem logotypów)
+        marqueeEl.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+            currentX -= delta * 0.9;
+            wrapX();
+            if (trackEl) trackEl.style.transform = `translate3d(${currentX}px, 0, 0)`;
+        }, { passive: false });
+    }
+
+    // Przyciski ‹ i ›
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            currentX += 220; // przesuwa w prawo, odsłaniając wcześniejsze loga
+            wrapX();
+            if (trackEl) trackEl.style.transform = `translate3d(${currentX}px, 0, 0)`;
+        });
+    }
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            currentX -= 220; // przesuwa w lewo, odsłaniając kolejne loga
+            wrapX();
+            if (trackEl) trackEl.style.transform = `translate3d(${currentX}px, 0, 0)`;
+        });
+    }
 
     // --- LOGIKA MODALA ---
     
@@ -387,6 +554,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // 2. Funkcje globalne do obsługi (przypisane do window, aby działały w onclick)
     window.openPortfolioModal = function(projectName) {
+        if (hasMoved) return; // Jeśli użytkownik przeciągał myszką, nie otwieraj modala
         const project = projects.find(p => p.name === projectName);
         if (!project) return;
 

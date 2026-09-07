@@ -1,4 +1,4 @@
-﻿// CALCULATOR
+// CALCULATOR
 // 1. Definicja inputs (sprawdź czy ID zgadzają się z HTML!)
 const inputs = {
     volume:  { el: document.getElementById('range-volume'),  out: document.getElementById('val-volume'),  unit: ' L' },
@@ -986,6 +986,9 @@ if (contactForm) {
     if (phoneInput) {
         phoneInput.addEventListener('input', function(e) {
             let val = e.target.value.replace(/\D/g, '');
+            if (val.startsWith('48') && val.length > 9) {
+                val = val.substring(2);
+            }
             val = val.substring(0, 9);
             if (val.length > 6) {
                 val = val.substring(0, 3) + ' ' + val.substring(3, 6) + ' ' + val.substring(6);
@@ -999,14 +1002,21 @@ if (contactForm) {
     contactForm.addEventListener('submit', function(e) {
         e.preventDefault();
         
-        const phoneVal = phoneInput ? phoneInput.value.replace(/\D/g, '') : ''; // Usuwa wszystko co nie jest cyfr?
-
-        if (phoneVal.length !== 9) {
-            alert('Proszę podać poprawny numer telefonu (9 cyfr).');
-            return;
+        let phoneVal = phoneInput ? phoneInput.value.replace(/\D/g, '') : '';
+        if (phoneVal.startsWith('48') && phoneVal.length > 9) {
+            phoneVal = phoneVal.substring(2);
         }
+        phoneVal = phoneVal.substring(0, 9);
 
         const status = document.getElementById('form-status');
+
+        if (phoneVal.length !== 9) {
+            if (status) {
+                status.innerHTML = '<div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; padding: 10px 14px; border-radius: 8px; margin-top: 10px; font-size: 0.9rem; font-weight: 600;">⚠️ Proszę podać poprawny 9-cyfrowy numer telefonu (np. 574 322 909).</div>';
+            }
+            phoneInput?.focus();
+            return;
+        }
         const btn = this.querySelector('button[type="submit"]');
         const originalBtnText = btn.innerText;
         
@@ -1305,7 +1315,15 @@ if (shareBtn) {
                 title: document.title,
                 text: 'Sprawdź darmowe grzanie wody ze słońca! ☀️',
                 url: window.location.href
-            }).catch(console.error);
+            }).catch(() => {});
+        } else if (navigator.clipboard) {
+            navigator.clipboard.writeText(window.location.href).then(() => {
+                const origHtml = shareBtn.innerHTML;
+                shareBtn.innerHTML = '<i class="fas fa-check" style="color:var(--green);"></i> Skopiowano link!';
+                setTimeout(() => { shareBtn.innerHTML = origHtml; }, 2500);
+            }).catch(() => {
+                prompt('Skopiuj link do strony:', window.location.href);
+            });
         } else {
             prompt('Skopiuj link do strony:', window.location.href);
         }
@@ -1590,18 +1608,7 @@ function bvToRgb(bvRaw) {
 }
 
 async function loadSkyCatalogs() {
-    if (skyCatalogsPromise) return skyCatalogsPromise;
-    skyCatalogsPromise = (async () => {
-        const [starsRes, constRes] = await Promise.all([
-            fetch(SKY_CATALOG_STARS_URL, { cache: 'force-cache' }),
-            fetch(SKY_CATALOG_CONSTELLATIONS_URL, { cache: 'force-cache' })
-        ]);
-        if (!starsRes.ok) throw new Error(`Nie udało się pobrać katalogu gwiazd (${starsRes.status})`);
-        if (!constRes.ok) throw new Error(`Nie udało się pobrać linii konstelacji (${constRes.status})`);
-        const [starsJson, constJson] = await Promise.all([starsRes.json(), constRes.json()]);
-        return { stars: starsJson, constellations: constJson };
-    })();
-    return skyCatalogsPromise;
+    return { stars: null, constellations: null };
 }
 
 function getStarsVisibilityFactor() {
@@ -1678,7 +1685,9 @@ async function initStars(date = new Date()) {
         stars = catalogs.stars;
         constellations = catalogs.constellations;
     } catch (e) {
-        // W razie błędu: pokaż chociaż gwiazdki (bez konstelacji), zamiast pustego tła
+        stars = null;
+    }
+    if (!stars) {
         starsData.stars = buildFallbackStars(width, height);
         starsData.lines.length = 0;
         return;
@@ -1851,6 +1860,9 @@ async function initHeroSky(date = new Date()) {
         stars = catalogs.stars;
         constellations = catalogs.constellations;
     } catch (_) {
+        stars = null;
+    }
+    if (!stars) {
         heroSkyData.stars = buildFallbackStars(width, height);
         heroSkyData.lines.length = 0;
         return;
@@ -3564,7 +3576,22 @@ if (document.readyState === 'loading') {
 }
 
 // PDF EXPORT
+const toPdfAscii = (str) => (str || '')
+    .replace(/ą/g, 'a').replace(/Ą/g, 'A')
+    .replace(/ć/g, 'c').replace(/Ć/g, 'C')
+    .replace(/ę/g, 'e').replace(/Ę/g, 'E')
+    .replace(/ł/g, 'l').replace(/Ł/g, 'L')
+    .replace(/ń/g, 'n').replace(/Ń/g, 'N')
+    .replace(/ó/g, 'o').replace(/Ó/g, 'O')
+    .replace(/ś/g, 's').replace(/Ś/g, 'S')
+    .replace(/ź/g, 'z').replace(/Ź/g, 'Z')
+    .replace(/ż/g, 'z').replace(/Ż/g, 'Z');
+
 document.getElementById('btn-export-pdf')?.addEventListener('click', async () => {
+    if (!window.jspdf) {
+        alert('Moduł PDF ładuje się, spróbuj ponownie za moment.');
+        return;
+    }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
@@ -3575,7 +3602,7 @@ document.getElementById('btn-export-pdf')?.addEventListener('click', async () =>
     doc.text("Sloneczny Bojler", 20, 20);
     doc.setFontSize(12);
     doc.setTextColor(60, 60, 60);
-    doc.text("Raport Oszczednosci", 20, 30);
+    doc.text("Raport Szacunkowych Oszczednosci", 20, 30);
 
     // Dane
     doc.setFont("helvetica", "normal");
@@ -3588,11 +3615,11 @@ document.getElementById('btn-export-pdf')?.addEventListener('click', async () =>
     y += 10;
     
     const fields = [
-        `Cena prądu: ${document.getElementById('val-price')?.textContent || '-'}`,
-        `Osoby w domu: ${document.getElementById('val-persons')?.textContent || '-'}`,
-        `Pojemność bojlera: ${document.getElementById('val-volume')?.textContent || '-'}`,
-        `Roczna oszczędność: ${document.getElementById('result-saving')?.textContent || '-'}`,
-        `Prognozowany wzrost cen prądu: ${document.getElementById('roi-inflation')?.value}%`
+        `Cena pradu: ${toPdfAscii(document.getElementById('val-price')?.textContent || '-')}`,
+        `Osoby w domu: ${toPdfAscii(document.getElementById('val-persons')?.textContent || '-')}`,
+        `Pojemnosc bojlera: ${toPdfAscii(document.getElementById('val-volume')?.textContent || '-')}`,
+        `Roczna oszczednosc: ${toPdfAscii(document.getElementById('result-saving')?.textContent || '-')}`,
+        `Prognozowany wzrost cen pradu: ${toPdfAscii(document.getElementById('roi-inflation')?.value || '8')}%`
     ];
 
     fields.forEach(line => {

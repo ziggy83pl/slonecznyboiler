@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
@@ -123,11 +123,11 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.min.css">
+    <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☀️</text></svg>">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-0373984HNB"></script>
     <script>
     window.dataLayer = window.dataLayer || [];
@@ -165,8 +165,8 @@
             </div>
             <ul class="nav-links">
                 <li><a href="#zalety">Zalety</a></li>
-                <li><a href="blog.html#blog-jak-to-dziala">Jak działa</a></li>
-                <li><a href="blog.html#blog-realizacje">Realizacje</a></li>
+                <li><a href="#realizacje">Realizacje</a></li>
+                <li><a href="#opinie">Opinie</a></li>
                 <li><a href="#kalkulator">Kalkulator</a></li>
                 <li class="idea-wrapper">
                     <button type="button" id="btn-idea" class="btn-idea">💡 Zgłoś pomysł</button>
@@ -176,7 +176,7 @@
                             <h3>Zgłoś pomysł</h3>
                             <button id="idea-close" type="button"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg></button>
                         </div>
-                        <p class="idea-text">Chcemy, aby nasz serwis spełniał oczekiwania Twoje i innych Twórców. Jeśli masz pomysł na ulepszenie, napisz nam o tym.</p>
+                        <p class="idea-text">Chcemy, aby nasz serwis spełniał oczekiwania Twoje i innych mieszkańców naszego regionu. Jeśli masz pomysł na ulepszenie, napisz nam o tym.</p>
                         <form id="idea-form">
                             <textarea placeholder="Opisz zmianę, jakiej oczekujesz" rows="3" required></textarea>
                             <div class="idea-row"><input type="text" placeholder="Imię"><input type="email" placeholder="E-mail (opcjonalnie)"></div>
@@ -241,6 +241,9 @@
                 <p class="hero-sub">Płacisz tylko raz za instalację, a ciepłą wodę masz za darmo. Od wczesnej wiosny do późnej jesieni słońce ogrzewa Twój bojler, a Ty zapominasz o rachunkach za prąd. Prosty system off-grid bez formalności.</p>
                 <div class="hero-btns">
                     <a href="#kontakt" class="btn-primary">Sprawdź ile zaoszczędzisz</a>
+                    <a href="https://wa.me/48574322909?text=Dzie%C5%84%20dobry%2C%20chcia%C5%82bym%20zapyta%C4%87%20o%20wycen%C4%99%20S%C5%82onecznego%20Bojlera" target="_blank" rel="noopener noreferrer" class="btn-whatsapp" title="Czat WhatsApp">
+                        <i class="fab fa-whatsapp"></i> WhatsApp
+                    </a>
                     <a href="#kalkulator" class="btn-secondary">Przelicz oszczędności →</a>
                     <button id="share-btn" class="btn-secondary btn-share" type="button" title="Udostępnij stronę">
                         <i class="fas fa-share-nodes"></i> Udostępnij
@@ -928,6 +931,55 @@
         </div>
     </section>
 
+    <!-- REALIZACJE -->
+    <section id="realizacje" class="realizacje-section">
+        <div class="section-inner fade-in-section">
+            <div class="section-head">
+                <div class="section-label">Dowód z montażu</div>
+                <h2 class="section-title">Nasze realizacje w okolicy</h2>
+                <p class="section-sub">Zobacz, jak estetycznie wygląda gotowy zestaw i ile zyskują właściciele domów w promieniu 40 km od Łomży.</p>
+            </div>
+            <div class="realizacje-grid">
+                <div class="realizacja-card">
+                    <div class="realizacja-img-wrap">
+                        <img src="image/panele.jpg" alt="Montaż paneli fotowoltaicznych do bojlera na dachu w Zambrowie" class="js-lightbox-item" data-caption="Instalacja 4 paneli 450W na dachu skośnym (Zambrów)" loading="lazy">
+                        <span class="realizacja-badge">📍 Zambrów</span>
+                        <div class="realizacja-zoom-hint"><i class="fas fa-search-plus"></i> Powiększ</div>
+                    </div>
+                    <div class="realizacja-body">
+                        <h3>Instalacja PV dla bojlera 140L</h3>
+                        <p class="realizacja-desc">Panele monokrystaliczne 450W skierowane na południe. Bojler 140L osiąga 60°C już około godziny 12:00–13:00.</p>
+                        <ul class="realizacja-specs">
+                            <li><span>Moc zestawu:</span> <strong>1 800 W (4 panele)</strong></li>
+                            <li><span>Czas montażu:</span> <strong>5 godzin (1 dzień)</strong></li>
+                            <li><span>Koszt ciepłej wody:</span> <strong class="green-text">0 zł od wiosny do jesieni</strong></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="realizacja-card">
+                    <div class="realizacja-img-wrap">
+                        <img src="image/falownik.png" alt="Sterownik inwerter MPPT podłączony do bojlera w kotłowni" class="js-lightbox-item" data-caption="Kompaktowy sterownik MPPT przy bojlerze (Piątnica)" loading="lazy">
+                        <span class="realizacja-badge">📍 Piątnica k. Łomży</span>
+                        <div class="realizacja-zoom-hint"><i class="fas fa-search-plus"></i> Powiększ</div>
+                    </div>
+                    <div class="realizacja-body">
+                        <h3>Sterownik MPPT do bojlera 200L</h3>
+                        <p class="realizacja-desc">Dedykowana przetwornica solarna z automatycznym przełączaniem na sieć nocą. Kompaktowy montaż bezpośrednio przy bojlerze.</p>
+                        <ul class="realizacja-specs">
+                            <li><span>Pojemność:</span> <strong>Bojler 200L (5 domowników)</strong></li>
+                            <li><span>Zgłoszenie do PGE:</span> <strong>Brak formalności (off-grid)</strong></li>
+                            <li><span>Roczna oszczędność:</span> <strong class="green-text">ok. 1 850 zł / rok</strong></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="realizacje-cta">
+                <span>Zastanawiasz się, jak taki zestaw sprawdzi się na Twoim dachu?</span>
+                <a href="#kontakt" class="btn-primary">Zamów bezpłatną wycenę dla mojego domu →</a>
+            </div>
+        </div>
+    </section>
+
     <!-- MAGAZYN ENERGII -->
     <!-- ─── START: NOWA SEKCJA MAGAZYN ENERGII ─── -->
     <section id="magazyn-energii" style="background: var(--white);">
@@ -1388,6 +1440,52 @@
         </div>
     </section>
 
+    <!-- OPINIE KLIENTÓW -->
+    <section id="opinie" class="opinie-section">
+        <div class="section-inner fade-in-section">
+            <div class="section-head">
+                <div class="section-label">Opinie sąsiadów</div>
+                <h2 class="section-title">Co mówią właściciele domów?</h2>
+                <p class="section-sub">Sprawdź doświadczenia osób z okolic Łomży, które już nie płacą za grzanie wody.</p>
+            </div>
+            <div class="opinie-grid">
+                <div class="opinia-card">
+                    <div class="opinia-stars">★★★★★</div>
+                    <p class="opinia-text">„Wcześniej latem musiałem palić w piecu co 2 dni tylko po to, żeby była ciepła woda do mycia. Od maja piec stoi wygaszony, a w bojlerze 140L woda ma ponad 60 stopni. Montaż zajął kilka godzin, czysto i profesjonalnie.”</p>
+                    <div class="opinia-author">
+                        <div class="opinia-avatar">MS</div>
+                        <div>
+                            <div class="opinia-name">Marek S.</div>
+                            <div class="opinia-city">Piątnica Poduchowna · Bojler 140L</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="opinia-card">
+                    <div class="opinia-stars">★★★★★</div>
+                    <p class="opinia-text">„Najlepsza decyzja wokół domu. Zero papierologii, żadnych wniosków do elektrowni. Pan Zbigniew dobrał 4 panele, wytłumaczył działanie i w jeden dzień było gotowe. Rachunki za prąd spadły o ponad 130 zł miesięcznie.”</p>
+                    <div class="opinia-author">
+                        <div class="opinia-avatar">KP</div>
+                        <div>
+                            <div class="opinia-name">Krzysztof P.</div>
+                            <div class="opinia-city">Zambrów · Bojler 180L</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="opinia-card">
+                    <div class="opinia-stars">★★★★★</div>
+                    <p class="opinia-text">„Mamy 4-osobową rodzinę i spore zużycie wody. Od wczesnej wiosny słońce całkowicie pokrywa nasze potrzeby. System zwróci się w niecałe 2 lata. Polecam każdemu, kto ma dość drogiego prądu z sieci.”</p>
+                    <div class="opinia-author">
+                        <div class="opinia-avatar">TK</div>
+                        <div>
+                            <div class="opinia-name">Tomasz K.</div>
+                            <div class="opinia-city">Łomża · Bojler 200L</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- SERVICE AREA -->
     <section id="obszar">
         <div class="section-inner fade-in-section">
@@ -1491,35 +1589,44 @@
             <div class="section-label" style="color: rgba(245,158,11,0.7); text-align:center">Bezpłatna wycena</div>
             <h2 class="section-title">Zapytaj o wycenę</h2>
             <p class="section-sub">Działam w Łomży i okolicach do 40 km. Zostaw dane, a oddzwonię i dobiorę zestaw idealnie pod Twój dom. Zero zobowiązań.</p>
-            <div style="text-align: center; margin-bottom: 30px;">
-                <a href="tel:+48574322909" style="color: #fff; text-decoration: none; font-size: 1.2rem; font-weight: 700; margin: 0 15px; display: inline-block;">📞 Zadzwoń teraz</a>
-                <a href="#contact-form" style="color: var(--sun); text-decoration: none; font-size: 1.1rem; font-weight: 600; margin: 0 15px; display: inline-block;">✉️ Napisz wiadomość</a>
+            <div class="contact-quick-actions">
+                <a href="tel:+48574322909" class="cqa-btn cqa-call">
+                    <span>📞 Zadzwoń:</span> <strong>574 322 909</strong>
+                </a>
+                <a href="https://wa.me/48574322909?text=Dzie%C5%84%20dobry%2C%20chcia%C5%82bym%20zapyta%C4%87%20o%20wycen%C4%99%20S%C5%82onecznego%20Bojlera" target="_blank" rel="noopener noreferrer" class="cqa-btn cqa-wa">
+                    <i class="fab fa-whatsapp"></i> <strong>Napisz na WhatsApp</strong>
+                </a>
             </div>
             <div class="contact-form">
                 <form id="contact-form">
                     <div class="form-row">
                         <div class="form-field">
-                            <input type="text" placeholder="Twoje imię" required>
+                            <label for="contact-name" class="visually-hidden">Twoje imię</label>
+                            <input type="text" id="contact-name" name="name" placeholder="Twoje imię" autocomplete="name" required>
                         </div>
                         <div class="form-field">
-                            <input type="tel" placeholder="Numer telefonu" required>
+                            <label for="contact-phone" class="visually-hidden">Numer telefonu</label>
+                            <input type="tel" id="contact-phone" name="phone" placeholder="Numer telefonu (np. 574 322 909)" autocomplete="tel" required>
                         </div>
                     </div>
                     <div class="form-field">
-                        <input type="email" placeholder="E-mail (opcjonalnie)">
+                        <label for="contact-email" class="visually-hidden">Adres e-mail</label>
+                        <input type="email" id="contact-email" name="email" placeholder="E-mail (opcjonalnie)" autocomplete="email">
                     </div>
                     <div class="form-field">
-                        <select>
+                        <label for="contact-boiler" class="visually-hidden">Pojemność bojlera</label>
+                        <select id="contact-boiler" name="boiler">
                             <option value="" disabled selected>Pojemność bojlera</option>
-                            <option>Do 100L</option>
-                            <option>100–140L</option>
-                            <option>140–200L</option>
-                            <option>Powyżej 200L</option>
-                            <option>Nie wiem</option>
+                            <option value="Do 100L">Do 100L</option>
+                            <option value="100–140L">100–140L</option>
+                            <option value="140–200L">140–200L</option>
+                            <option value="Powyżej 200L">Powyżej 200L</option>
+                            <option value="Nie wiem">Nie wiem (pomóż mi dobrać)</option>
                         </select>
                     </div>
                     <div class="form-field">
-                        <textarea placeholder="Miejscowość + cokolwiek chcesz dodać (np. liczba osób, typ dachu)"></textarea>
+                        <label for="contact-message" class="visually-hidden">Wiadomość</label>
+                        <textarea id="contact-message" name="message" placeholder="Miejscowość + cokolwiek chcesz dodać (np. liczba osób, typ dachu: blacha, dachówka, grunt)"></textarea>
                     </div>
                     <button type="submit" class="btn-submit">Wyślij zapytanie — oddzwonię 📞</button>
                 </form>
@@ -1554,7 +1661,17 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
     </a>
 
-    <script src="script.min.js"></script>
+    <!-- STICKY MOBILE CTA BAR -->
+    <aside class="sticky-mobile-cta" id="sticky-mobile-cta" aria-label="Szybki kontakt">
+        <a href="tel:+48574322909" class="sm-btn sm-call">
+            <i class="fas fa-phone-alt"></i> <span>Zadzwoń: <strong>574 322 909</strong></span>
+        </a>
+        <a href="https://wa.me/48574322909?text=Dzie%C5%84%20dobry%2C%20chcia%C5%82bym%20zapyta%C4%87%20o%20wycen%C4%99%20S%C5%82onecznego%20Bojlera" target="_blank" rel="noopener noreferrer" class="sm-btn sm-wa" aria-label="Napisz na WhatsApp">
+            <i class="fab fa-whatsapp"></i> <span>WhatsApp</span>
+        </a>
+    </aside>
+
+    <script src="script.js"></script>
     <script src="portfolio-logos.js" defer></script>
 </body>
 </html>

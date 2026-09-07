@@ -2,15 +2,18 @@
     --sun: #F59E0B;
     --sun-deep: #D97706;
     --sun-light: #FEF3C7;
-    --ink: #1C1917;
-    --ink-soft: #44403C;
-    --ink-muted: #78716C;
-    --cream: #FFFBF0;
+    --sun-glow: #FBBF24;
+    --ink: #0F172A;
+    --ink-soft: #334155;
+    --ink-muted: #64748B;
+    --cream: #F8FAFC;
     --white: #FFFFFF;
-    --bg: #F7F3EC;
+    --bg: #F8FAFC;
     --card: #FFFFFF;
-    --border: #E7E0D5;
-    --green: #16A34A;
+    --border: #E2E8F0;
+    --green: #10B981;
+    --green-deep: #059669;
+    --green-light: #ECFDF5;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -28,12 +31,14 @@ body {
 /* ── NAV ───────────────────────────────────────────── */
 nav {
     position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-    background: rgba(28,25,23,0.95);
-    backdrop-filter: blur(10px);
+    background: rgba(15, 23, 42, 0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     padding: 0 24px;
     height: 64px;
     display: flex; align-items: center;
-    border-bottom: 1px solid rgba(245,158,11,0.2);
+    border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
 }
 .nav-inner {
     max-width: 1140px; width: 100%; margin: auto;
@@ -3178,4 +3183,344 @@ input[type="range"]::-webkit-slider-thumb {
     opacity: 0.7;
     flex: 1;
     text-align: center;
+}
+
+
+/* ================================================
+   NOWOCZESNE ROZSZERZENIA: REALIZACJE, OPINIE, CTA
+   ================================================ */
+
+.green-text {
+    color: var(--green) !important;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Przycisk WhatsApp w Hero */
+.btn-whatsapp {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #25D366;
+    color: #ffffff !important;
+    padding: 12px 22px;
+    border-radius: 100px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);
+}
+.btn-whatsapp:hover {
+    background: #20BA5A;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(37, 211, 102, 0.45);
+    color: #ffffff !important;
+}
+
+/* ── REALIZACJE ─────────────────────────────────── */
+.realizacje-section {
+    background: var(--bg);
+    padding: 80px 24px;
+}
+.realizacje-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 28px;
+    margin-top: 36px;
+}
+.realizacja-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+.realizacja-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+}
+.realizacja-img-wrap {
+    position: relative;
+    width: 100%;
+    height: 240px;
+    overflow: hidden;
+    background: #1e293b;
+    cursor: zoom-in;
+}
+.realizacja-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+}
+.realizacja-card:hover .realizacja-img-wrap img {
+    transform: scale(1.04);
+}
+.realizacja-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
+    color: #FCD34D;
+    padding: 6px 12px;
+    border-radius: 100px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border: 1px solid rgba(252, 211, 77, 0.3);
+}
+.realizacja-zoom-hint {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    opacity: 0.85;
+    transition: opacity 0.2s ease;
+}
+.realizacja-card:hover .realizacja-zoom-hint {
+    opacity: 1;
+}
+.realizacja-body {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+.realizacja-body h3 {
+    font-family: 'Sora', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 8px;
+}
+.realizacja-desc {
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    margin-bottom: 18px;
+}
+.realizacja-specs {
+    list-style: none;
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.realizacja-specs li {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+}
+.realizacja-specs li strong {
+    color: var(--ink);
+}
+.realizacje-cta {
+    margin-top: 40px;
+    text-align: center;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+.realizacje-cta span {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: var(--ink);
+}
+
+/* ── OPINIE KLIENTÓW ────────────────────────────── */
+.opinie-section {
+    background: #FFFFFF;
+    padding: 80px 24px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+.opinie-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    margin-top: 36px;
+}
+.opinia-card {
+    background: #F8FAFC;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.opinia-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+    background: #ffffff;
+}
+.opinia-stars {
+    color: #F59E0B;
+    font-size: 1.15rem;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+}
+.opinia-text {
+    font-size: 0.95rem;
+    color: var(--ink-soft);
+    line-height: 1.6;
+    font-style: italic;
+    margin-bottom: 20px;
+    flex-grow: 1;
+}
+.opinia-author {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.opinia-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+    color: #fff;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    font-family: 'Sora', sans-serif;
+}
+.opinia-name {
+    font-weight: 700;
+    color: var(--ink);
+    font-size: 0.92rem;
+}
+.opinia-city {
+    font-size: 0.8rem;
+    color: var(--ink-muted);
+}
+
+/* ── SZYBKI KONTAKT W SEKCJI FORMULARZA ──────────── */
+.contact-quick-actions {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+.cqa-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 24px;
+    border-radius: 100px;
+    text-decoration: none;
+    font-size: 1.05rem;
+    font-weight: 600;
+    transition: all 0.25s ease;
+}
+.cqa-call {
+    background: #0F172A;
+    color: #FFFFFF !important;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.cqa-call:hover {
+    background: #1E293B;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+.cqa-wa {
+    background: #25D366;
+    color: #FFFFFF !important;
+    box-shadow: 0 4px 14px rgba(37, 211, 102, 0.3);
+}
+.cqa-wa:hover {
+    background: #20BA5A;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(37, 211, 102, 0.45);
+}
+
+/* ── PŁYWAJĄCY DOLNY PASEK MOBILNY (STICKY MOBILE CTA) ── */
+.sticky-mobile-cta {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .sticky-mobile-cta {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 999;
+        display: flex;
+        gap: 8px;
+        padding: 10px 14px;
+        background: rgba(15, 23, 42, 0.94);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border-top: 1px solid rgba(245, 158, 11, 0.3);
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+    }
+    .sm-btn {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px 8px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 0.92rem;
+        text-decoration: none;
+        text-align: center;
+        transition: transform 0.15s ease;
+    }
+    .sm-btn:active {
+        transform: scale(0.97);
+    }
+    .sm-call {
+        background: var(--sun);
+        color: #0F172A !important;
+    }
+    .sm-wa {
+        background: #25D366;
+        color: #FFFFFF !important;
+    }
+    /* Ukryj małą pływającą słuchawkę na małych ekranach, by nie kolidowała */
+    .floating-call-btn {
+        bottom: 74px !important;
+    }
+    #back-to-top {
+        bottom: 74px !important;
+    }
+    #bg-dimmer-wrapper {
+        bottom: 124px !important;
+    }
+    body {
+        padding-bottom: 64px; /* Zapas na dolny pasek */
+    }
 }

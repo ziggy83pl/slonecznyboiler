@@ -7,10 +7,43 @@ document.addEventListener("DOMContentLoaded", function() {
     style.textContent = `
         #global-trusted-logos {
             display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            gap: 30px;
+            width: 100%;
+            gap: 15px;
+        }
+        .logos-marquee {
+            overflow: hidden;
+            width: 100%;
+            max-width: 1080px;
+            margin: 0 auto;
+            position: relative;
+            padding: 30px 0 15px 0;
+            display: flex;
+            align-items: flex-end;
+            mask-image: linear-gradient(to right, transparent, white 10%, white 90%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, white 10%, white 90%, transparent);
+        }
+        .logos-track {
+            display: flex;
+            width: max-content;
+            gap: 0;
+            animation: scrollMarquee 35s linear infinite;
+        }
+        .logos-track:hover {
+            animation-play-state: paused;
+        }
+        .logos-track .logo-tooltip {
+            margin: 0 15px;
+            flex-shrink: 0;
+        }
+        @keyframes scrollMarquee {
+            0% {
+                transform: translateX(0);
+            }
+            100% {
+                transform: translateX(-50%);
+            }
         }
         #global-trusted-logos .logo-tooltip {
             display: flex;
@@ -20,6 +53,7 @@ document.addEventListener("DOMContentLoaded", function() {
             color: inherit;
             position: relative;
             cursor: pointer;
+            flex-shrink: 0;
         }
         #global-trusted-logos img {
             height: 70px;
@@ -107,7 +141,18 @@ document.addEventListener("DOMContentLoaded", function() {
         }
         .pm-close-btn:hover { color: #333; }
 
-        .pm-modal-img { height: 100px; width: 100px; object-fit: contain; margin-bottom: 15px; }
+        .pm-modal-img {
+            height: 90px;
+            width: 90px;
+            object-fit: contain;
+            border-radius: 50%;
+            border: 2px solid rgba(0, 0, 0, 0.12);
+            background-color: #ffffff;
+            padding: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            margin: 0 auto 15px auto;
+            display: block;
+        }
         .pm-modal-title { font-size: 1.5rem; margin-bottom: 10px; color: #333; font-weight: bold; }
         .pm-modal-desc { font-size: 0.95rem; color: #666; margin-bottom: 25px; line-height: 1.5; }
         
@@ -117,6 +162,49 @@ document.addEventListener("DOMContentLoaded", function() {
             border-radius: 50px; font-weight: 600; transition: 0.3s;
         }
         .pm-modal-action:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+
+        /* --- DARK MODE SUPPORT FOR MODAL --- */
+        html[data-bs-theme="dark"] .pm-modal-content,
+        body.dark-mode .pm-modal-content,
+        .dark-mode .pm-modal-content,
+        [data-theme="dark"] .pm-modal-content {
+            background-color: #1e293b !important;
+            background: #1e293b !important;
+            color: #f8fafc !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5) !important;
+        }
+        html[data-bs-theme="dark"] .pm-modal-title,
+        body.dark-mode .pm-modal-title,
+        .dark-mode .pm-modal-title,
+        [data-theme="dark"] .pm-modal-title {
+            color: #f8fafc !important;
+        }
+        html[data-bs-theme="dark"] .pm-modal-desc,
+        body.dark-mode .pm-modal-desc,
+        .dark-mode .pm-modal-desc,
+        [data-theme="dark"] .pm-modal-desc {
+            color: #cbd5e1 !important;
+        }
+        html[data-bs-theme="dark"] .pm-close-btn,
+        body.dark-mode .pm-close-btn,
+        .dark-mode .pm-close-btn,
+        [data-theme="dark"] .pm-close-btn {
+            color: #cbd5e1 !important;
+        }
+        html[data-bs-theme="dark"] .pm-close-btn:hover,
+        body.dark-mode .pm-close-btn:hover,
+        .dark-mode .pm-close-btn:hover,
+        [data-theme="dark"] .pm-close-btn:hover {
+            color: #f97316 !important;
+        }
+        html[data-bs-theme="dark"] .pm-modal-img,
+        body.dark-mode .pm-modal-img,
+        .dark-mode .pm-modal-img,
+        [data-theme="dark"] .pm-modal-img {
+            border-color: rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4) !important;
+        }
     `;
     document.head.appendChild(style);
 
@@ -172,7 +260,7 @@ document.addEventListener("DOMContentLoaded", function() {
         },
         {
             name: "Wynajem",
-            url: "https://ziggy83pl.github.io/rentmaster/",
+            url: "https://rentmaster.pages.dev/",
             img: "https://ziggy83pl.github.io/zasoby/logo/rentmaster.webp",
             title: "RentMaster - Wynajem",
             description: "Profesjonalna wypożyczalnia sprzętu budowlanego i ogrodniczego. Sprawdź naszą ofertę.",
@@ -195,12 +283,47 @@ document.addEventListener("DOMContentLoaded", function() {
             color: "#f59e0b",
             keywords: ["uslugi-koparko", "ArkadiuszMalinowski"]
         },
+        {
+            name: "Giełda Budowlana",
+            url: "https://gieldabudowlana.xo.je/",
+            img: "https://ziggy83pl.github.io/zasoby/logo/gieldabudowlana.webp",
+            title: "Giełda Budowlana",
+            description: "Giełda Budowlana",
+            color: "#f39c12"
+        },
+        {
+            name: "LZ-TECH",
+            url: "https://lz-tech.pages.dev/",
+            img: "https://ziggy83pl.github.io/zasoby/logo/lz_tech.webp",
+            title: "LZ-TECH - Usługi Minikoparką i Elektryczne",
+            description: "Profesjonalne usługi minikoparką i instalacje elektryczne. Wykopy pod przyłącza, kanalizację, kable, niwelacja terenu i kompleksowa elektryka.",
+            color: "#ffcc00",
+            keywords: ["lz-tech", "lukaszZelechowski", "lukaszzelechowski", "lz.tech"]
+        },
+        {
+            name: "Antyki",
+            url: "https://antyki-pl.xo.je/",
+            img: "https://ziggy83pl.github.io/zasoby/logo/antyki.webp",
+            title: "Antyki PL - Ogłoszenia i Skup Antyków",
+            description: "Portal z antykami, starociami i meblami z duszą. Dodawaj ogłoszenia i kupuj unikalne przedmioty z historią.",
+            color: "#8b4513",
+            keywords: ["antyki-pl", "antyki.pl", "antyki-pl.xo.je", "antyki"]
+        },
+        {
+            name: "Wykończenia",
+            url: "https://mariusz-butrymowicz-wykonczenia-wnetrz.pages.dev/",
+            img: "https://ziggy83pl.github.io/zasoby/logo/mariusz.webp",
+            title: "Mariusz Butrymowicz - Wykończenia Wnętrz",
+            description: "Kompleksowe usługi remontowo-budowlane i wykończenia wnętrz od A do Z. Malowanie, szpachlowanie, zabudowy g-k, glazura i instalacje.",
+            color: "#eab308",
+            keywords: ["mariusz-butrymowicz", "mariusz-butrymowicz-wykonczenia-wnetrz", "butrymowicz"]
+        },
     ];
 
     const currentUrl = window.location.href;
 
     // Nagłówek sekcji (H2) dodawany automatycznie
-    let html = `<h2 class="logo-header" data-lang="portfolio_title">Wspieramy i Polecamy</h2>`;
+    let logosHtml = '';
 
     projects.forEach(project => {
         let isHidden = false;
@@ -217,15 +340,30 @@ document.addEventListener("DOMContentLoaded", function() {
              // Dodatkowe sprawdzenie dla Słonecznego Bojlera
             if (project.name === "Słoneczny Bojler" && currentUrl.includes("slonecznyboiler")) isHidden = true;
         }
+        if ((project.name === "Antyki" || project.name === "Antyki PL") && (currentUrl.includes("antyki-pl") || currentUrl.includes("antyki.pl") || currentUrl.includes("antyki"))) {
+            isHidden = true;
+        }
 
         if (!isHidden) {
-            html += `
-                <div class="logo-tooltip" data-tooltip="${project.title}" onclick="openPortfolioModal('${project.name}')">
-                    <img src="${project.img}" alt="${project.name}" style="--hover-color: ${project.color}" width="70" height="70" loading="lazy" onerror="this.style.display='none'">
+            logosHtml += `
+                <div class="logo-tooltip" data-tooltip="${project.title}" title="${project.title}" onclick="openPortfolioModal('${project.name}')">
+                    <img src="${project.img}" alt="${project.name}" style="--hover-color: ${project.color}; width: 70px; height: 70px; object-fit: contain; border-radius: 50%;" width="70" height="70" loading="lazy" onerror="this.style.display='none'">
                     <span class="logo-label">${project.name}</span>
                 </div>`;
         }
     });
+
+    let html = `<h2 class="logo-header" data-lang="portfolio_title">Wspieramy i Polecamy</h2>`;
+    html += `
+        <div class="logos-marquee">
+            <div class="logos-track">
+                ${logosHtml}
+                ${logosHtml}
+                ${logosHtml}
+                ${logosHtml}
+            </div>
+        </div>
+    `;
 
     container.innerHTML = html;
 
@@ -279,3 +417,4 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 });
+

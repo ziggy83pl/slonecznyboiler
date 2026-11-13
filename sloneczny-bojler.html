@@ -56,6 +56,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.min.css">
     <link rel="manifest" href="manifest.json">
+<style id="mg-style">
+.mg-strip{background:#0f1f3d;padding:22px 16px;text-align:center}
+.mg-badge{display:inline-flex;align-items:center;gap:14px;padding:10px 20px 10px 10px;background:#fff;border:2px solid #f5c400;border-radius:14px;color:#0f1f3d;text-decoration:none;font-family:inherit;box-shadow:0 6px 20px rgba(0,0,0,.25);transition:transform .2s,box-shadow .2s;max-width:100%}
+.mg-badge:hover,.mg-badge:focus-visible{transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,0,0,.35)}
+.mg-badge img{width:56px;height:56px;border-radius:10px;flex-shrink:0}
+.mg-badge span{display:flex;flex-direction:column;text-align:left;line-height:1.25}
+.mg-badge small{font-size:.8rem;opacity:.75;text-transform:uppercase;letter-spacing:.06em}
+.mg-badge strong{font-size:1.1rem}
+.mg-pill{display:inline-flex;align-items:center;gap:8px;margin:0 0 18px;padding:5px 14px 5px 5px;background:rgba(255,255,255,.95);border:1px solid #f5c400;border-radius:999px;color:#0f1f3d;font-size:.9rem;font-weight:600;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.2);transition:transform .2s}
+.mg-pill:hover,.mg-pill:focus-visible{transform:translateY(-1px)}
+.mg-pill img{width:28px;height:28px;border-radius:50%}
+</style>
 </head>
 <body>
 
@@ -103,6 +115,7 @@
                 <div class="hero-badge">☀ Montaż Łomża i okolice – do 40 km</div>
                 <h1>Przestań płacić<br>za <em>grzanie wody</em></h1>
                 <p class="hero-sub">Niezależny system PV + falownik MPPT. Energia ze słońca trafia prosto do Twojego bojlera — zero formalności, zero rachunków za podgrzewanie.</p>
+                <a class="mg-pill" href="https://majstergielda.pl/" target="_blank" rel="noopener"><img src="majstergielda.png" alt="" width="28" height="28">Polecany przez MajsterGiełda.pl</a>
                 <div class="hero-btns">
                     <a href="#kontakt" class="btn-primary">Sprawdź ile zaoszczędzisz</a>
                     <a href="#kalkulator" class="btn-secondary">Przelicz oszczędności →</a>
@@ -443,7 +456,9 @@
         </div>
     </section>
 
-    <footer>
+    <!-- MajsterGielda -->
+<div class="mg-strip"><a class="mg-badge" href="https://majstergielda.pl/" target="_blank" rel="noopener" title="MajsterGiełda.pl"><img src="majstergielda.png" alt="Logo MajsterGiełda.pl" width="56" height="56" loading="lazy"><span><small>Polecany przez</small><strong>MajsterGiełda.pl</strong></span></a></div>
+<footer>
         <div id="global-trusted-logos" style="margin-bottom: 20px;"></div>
         <p>© 2026 SłonecznyBojler — Montaż systemów PV do podgrzewania wody | Łomża i okolice (do 40 km) <span style="color:var(--sun); font-size: 0.9em;">v1.0</span></p>
         <p style="margin-top: 10px; font-size: 0.8em; color:var(--sun);">Realizacja: <a href="https://wizytowka-online.pages.dev/" target="_blank" style="color: inherit; text-decoration: none;">Enterprise</a></p>
